@@ -365,6 +365,10 @@ const DEFAULT_FPS = 6;
 const DEFAULT_SPEED = 60; // px/s
 const DEFAULT_NEAR_SCALE = 2.0;
 
+// Meebits切替時の暗転演出
+const BLACKOUT_FADE_MS = 360;
+const BLACKOUT_HOLD_MS = 10;
+
 function buildSpriteUrl(meebitId: number): string {
   // デフォルトIDはローカルのスプライトを優先（開発体験が良い）
   if (meebitId === DEFAULT_MEEBIT_ID) return "/images/4274.png";
@@ -486,11 +490,13 @@ export function MeebitRunway() {
   const animationFrameIdRef = useRef<number | null>(null);
   const lastTimestampRef = useRef<number | null>(null);
   const accumulatedMsRef = useRef<number>(0);
+  const blackoutTimeoutsRef = useRef<number[]>([]);
 
   // React stateはUI用。毎フレーム更新しない（パフォーマンスのため）
   const [isPlaying, setIsPlaying] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [audioAutoplayBlocked, setAudioAutoplayBlocked] = useState(false);
+  const [isBlackout, setIsBlackout] = useState(false);
 
   // 入力されたIDを順番に表示する（ランウェイを歩き切るたびに次のIDへ）
   const [lineupInput, setLineupInput] = useState(`${DEFAULT_MEEBIT_ID}`);
@@ -517,6 +523,16 @@ export function MeebitRunway() {
     }),
     [],
   );
+
+  useEffect(() => {
+    // unmount時にタイマーを掃除
+    return () => {
+      for (const id of blackoutTimeoutsRef.current) {
+        window.clearTimeout(id);
+      }
+      blackoutTimeoutsRef.current = [];
+    };
+  }, []);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -554,6 +570,28 @@ export function MeebitRunway() {
       }
       lastTimestampRef.current = null;
       accumulatedMsRef.current = 0;
+    };
+
+    const scheduleBlackoutToNextMeebit = () => {
+      // すでに暗転中なら重複トリガーしない
+      setIsBlackout((prev) => {
+        if (prev) return prev;
+        return true;
+      });
+
+      // フェードイン完了後に次のMeebitへ切替
+      blackoutTimeoutsRef.current.push(
+        window.setTimeout(() => {
+          setCurrentMeebitIndex((prev) => (prev + 1) % meebitIds.length);
+        }, BLACKOUT_FADE_MS),
+      );
+
+      // 切替後にフェードアウト
+      blackoutTimeoutsRef.current.push(
+        window.setTimeout(() => {
+          setIsBlackout(false);
+        }, BLACKOUT_FADE_MS + BLACKOUT_HOLD_MS),
+      );
     };
 
     const start = (ctx: CanvasRenderingContext2D) => {
@@ -633,7 +671,8 @@ export function MeebitRunway() {
         const dSize = runwayConfig.characterSize * scale * dpr;
 
         // 中央線上を歩く：左右の揺れを少しだけ足す
-        const sway = Math.sin(swayPhase) * 2 * dpr;
+        // 停止中（手前でポーズ）は揺れゼロにして違和感を減らす
+        const sway = phase === "pose_front" ? 0 : Math.sin(swayPhase) * 2 * dpr;
         const dx = centerX - dSize / 2 + sway;
         // 足元をyに合わせる（キャラの下端を進行位置に）
         const dy = y - dSize;
@@ -682,7 +721,8 @@ export function MeebitRunway() {
         if (phase === "walk_out" && (y <= topY || alpha <= 0.01)) {
           // 退場完了：次のMeebitへ
           if (meebitIds.length >= 2) {
-            setCurrentMeebitIndex((prev) => (prev + 1) % meebitIds.length);
+            stop();
+            scheduleBlackoutToNextMeebit();
             return; // 次のtickは新しいspriteのeffectで開始する
           }
 
@@ -745,7 +785,7 @@ export function MeebitRunway() {
 
       // 失敗したら次へ（複数ある場合）
       if (meebitIds.length >= 2) {
-        setCurrentMeebitIndex((prev) => (prev + 1) % meebitIds.length);
+        scheduleBlackoutToNextMeebit();
       }
     };
 
@@ -886,6 +926,13 @@ export function MeebitRunway() {
         <div className="relative h-[420px] w-full overflow-hidden rounded-2xl border border-black/10 bg-black shadow-sm dark:border-white/10">
           <audio ref={audioRef} src="/music/Meebits.mp3" playsInline />
           <canvas ref={canvasRef} className="h-full w-full" />
+          <div
+            className={[
+              "pointer-events-none absolute inset-0 z-20 bg-black transition-opacity",
+              isBlackout ? "opacity-100" : "opacity-0",
+            ].join(" ")}
+            style={{ transitionDuration: `${BLACKOUT_FADE_MS}ms` }}
+          />
           <div className="pointer-events-none absolute inset-x-0 bottom-3 flex items-end justify-end">
             <span className="rounded-full bg-black/40 px-3 py-1 text-xs text-zinc-100 backdrop-blur">
               ID: {currentMeebitId} / lineup:{" "}
