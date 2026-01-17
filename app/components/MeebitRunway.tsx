@@ -931,7 +931,10 @@ export function MeebitRunway() {
         ) {
           const spawnIndex = finaleNextSpawnIndexRef.current;
           const id = meebitIds[spawnIndex]!;
-          const laneIndex = (spawnIndex % 3) as 0 | 1 | 2;
+          // フィナーレの1体目はセンターから開始（本物のランウェイっぽく）
+          // 以降はセンター→左→右の順で散らす
+          const lanePattern: Array<0 | 1 | 2> = [1, 0, 2];
+          const laneIndex = lanePattern[spawnIndex % lanePattern.length]!;
           finaleActorsRef.current.push(initActor(id, laneIndex));
           finaleNextSpawnIndexRef.current += 1;
           finaleSpawnAccMsRef.current -= FINALE_SPAWN_INTERVAL_MS;
