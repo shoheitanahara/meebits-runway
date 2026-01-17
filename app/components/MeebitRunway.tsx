@@ -482,6 +482,7 @@ function drawSpriteFrame(params: {
 
 export function MeebitRunway() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const animationFrameIdRef = useRef<number | null>(null);
   const lastTimestampRef = useRef<number | null>(null);
   const accumulatedMsRef = useRef<number>(0);
@@ -489,6 +490,7 @@ export function MeebitRunway() {
   // React stateはUI用。毎フレーム更新しない（パフォーマンスのため）
   const [isPlaying, setIsPlaying] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [audioAutoplayBlocked, setAudioAutoplayBlocked] = useState(false);
 
   // 入力されたIDを順番に表示する（ランウェイを歩き切るたびに次のIDへ）
   const [lineupInput, setLineupInput] = useState(`${DEFAULT_MEEBIT_ID}`);
@@ -515,6 +517,26 @@ export function MeebitRunway() {
     }),
     [],
   );
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    audio.volume = 0.8;
+    audio.loop = true;
+    audio.preload = "auto";
+
+    if (!isPlaying) {
+      audio.pause();
+      return;
+    }
+
+    // 自動再生は環境によってブロックされるので、失敗時はUIで案内する
+    void audio.play().then(
+      () => setAudioAutoplayBlocked(false),
+      () => setAudioAutoplayBlocked(true),
+    );
+  }, [isPlaying]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -779,12 +801,34 @@ export function MeebitRunway() {
           <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
-            onClick={() => setIsPlaying((v) => !v)}
+            onClick={() => {
+              const next = !isPlaying;
+              setIsPlaying(next);
+
+              // ユーザー操作（クリック）に紐づくので音が許可されやすい
+              const audio = audioRef.current;
+              if (!audio) return;
+
+              if (!next) {
+                audio.pause();
+                return;
+              }
+
+              void audio.play().then(
+                () => setAudioAutoplayBlocked(false),
+                () => setAudioAutoplayBlocked(true),
+              );
+            }}
             className="inline-flex h-10 items-center justify-center rounded-full bg-zinc-950 px-5 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
             disabled={errorMessage != null}
           >
             {isPlaying ? "Pause" : "Play"}
           </button>
+          {audioAutoplayBlocked && (
+            <span className="text-xs text-zinc-600 dark:text-zinc-400">
+              Sound is blocked by your browser. Click <strong>Play</strong> to enable audio.
+            </span>
+          )}
           </div>
 
           <div className="flex flex-col gap-2 md:flex-row md:items-end">
@@ -840,6 +884,7 @@ export function MeebitRunway() {
         </div>
 
         <div className="relative h-[420px] w-full overflow-hidden rounded-2xl border border-black/10 bg-black shadow-sm dark:border-white/10">
+          <audio ref={audioRef} src="/music/Meebits.mp3" playsInline />
           <canvas ref={canvasRef} className="h-full w-full" />
           <div className="pointer-events-none absolute inset-x-0 bottom-3 flex items-end justify-end">
             <span className="rounded-full bg-black/40 px-3 py-1 text-xs text-zinc-100 backdrop-blur">
