@@ -26,6 +26,21 @@ type RunwayConfig = Readonly<{
   fps: number;
 }>;
 
+type RunwayMode = "single" | "finale";
+
+type ActorPhase = "walk_in" | "pose_front" | "walk_out";
+
+type Actor = {
+  id: number;
+  phase: ActorPhase;
+  holdRemainingMs: number;
+  y: number;
+  swayPhase: number;
+  frameIndex: number;
+  frameAccMs: number;
+  laneIndex: 0 | 1 | 2;
+};
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
@@ -369,6 +384,9 @@ const DEFAULT_NEAR_SCALE = 2.0;
 const BLACKOUT_FADE_MS = 360;
 const BLACKOUT_HOLD_MS = 10;
 
+// フィナーレ（全員連続で登場）演出
+const FINALE_SPAWN_INTERVAL_MS = 800;
+
 function buildSpriteUrl(meebitId: number): string {
   // デフォルトIDはローカルのスプライトを優先（開発体験が良い）
   if (meebitId === DEFAULT_MEEBIT_ID) return "/images/4274.png";
@@ -491,12 +509,23 @@ export function MeebitRunway() {
   const lastTimestampRef = useRef<number | null>(null);
   const accumulatedMsRef = useRef<number>(0);
   const blackoutTimeoutsRef = useRef<number[]>([]);
+  const spriteCacheRef = useRef<
+    Map<number, { img: HTMLImageElement; status: "loading" | "loaded" | "error" }>
+  >(new Map());
+
+  const singleActorRef = useRef<Actor | null>(null);
+  const finaleActorsRef = useRef<Actor[]>([]);
+  const finaleNextSpawnIndexRef = useRef<number>(0);
+  const finaleSpawnAccMsRef = useRef<number>(0);
+  const finaleStartRequestedRef = useRef<boolean>(false);
 
   // React stateはUI用。毎フレーム更新しない（パフォーマンスのため）
   const [isPlaying, setIsPlaying] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [audioAutoplayBlocked, setAudioAutoplayBlocked] = useState(false);
   const [isBlackout, setIsBlackout] = useState(false);
+  const [runwayMode, setRunwayMode] = useState<RunwayMode>("single");
+  const [hasFinalePlayed, setHasFinalePlayed] = useState(false);
 
   // 入力されたIDを順番に表示する（ランウェイを歩き切るたびに次のIDへ）
   const [lineupInput, setLineupInput] = useState(`${DEFAULT_MEEBIT_ID}`);
@@ -504,7 +533,6 @@ export function MeebitRunway() {
   const [currentMeebitIndex, setCurrentMeebitIndex] = useState(0);
 
   const currentMeebitId = meebitIds[currentMeebitIndex] ?? DEFAULT_MEEBIT_ID;
-  const currentSpriteSrc = buildSpriteUrl(currentMeebitId);
 
   const spriteConfig: SpriteSheetConfig = useMemo(
     () => ({
@@ -560,9 +588,6 @@ export function MeebitRunway() {
 
     let disposed = false;
 
-    const sprite = new Image();
-    sprite.src = currentSpriteSrc;
-
     const stop = () => {
       if (animationFrameIdRef.current != null) {
         cancelAnimationFrame(animationFrameIdRef.current);
@@ -572,21 +597,28 @@ export function MeebitRunway() {
       accumulatedMsRef.current = 0;
     };
 
-    const scheduleBlackoutToNextMeebit = () => {
-      // すでに暗転中なら重複トリガーしない
-      setIsBlackout((prev) => {
-        if (prev) return prev;
-        return true;
-      });
 
-      // フェードイン完了後に次のMeebitへ切替
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      setErrorMessage("Failed to initialize canvas.");
+      return;
+    }
+
+    const clearBlackoutTimeouts = () => {
+      for (const id of blackoutTimeoutsRef.current) {
+        window.clearTimeout(id);
+      }
+      blackoutTimeoutsRef.current = [];
+    };
+
+    const scheduleBlackout = (onMidpoint: () => void) => {
+      clearBlackoutTimeouts();
+      setIsBlackout(true);
       blackoutTimeoutsRef.current.push(
         window.setTimeout(() => {
-          setCurrentMeebitIndex((prev) => (prev + 1) % meebitIds.length);
+          onMidpoint();
         }, BLACKOUT_FADE_MS),
       );
-
-      // 切替後にフェードアウト
       blackoutTimeoutsRef.current.push(
         window.setTimeout(() => {
           setIsBlackout(false);
@@ -594,103 +626,195 @@ export function MeebitRunway() {
       );
     };
 
-    const start = (ctx: CanvasRenderingContext2D) => {
-      // アニメーション状態（refのみで保持）
-      // 1) walk_in: 4行目(=row 3)で奥→手前へ歩く
-      // 2) pose_front: 手前到達で 4行目8列目(=col 7) を出して少し停止
-      // 3) walk_out: 2行目(=row 1)で手前→奥へ戻りつつフェードアウト
-      type AnimationPhase = "walk_in" | "pose_front" | "walk_out";
+    type SpriteEntry = {
+      img: HTMLImageElement;
+      status: "loading" | "loaded" | "error";
+    };
 
-      let phase: AnimationPhase = "walk_in";
-      let holdRemainingMs = 0;
+    const getSpriteEntry = (meebitId: number): SpriteEntry => {
+      const existing = spriteCacheRef.current.get(meebitId);
+      if (existing) return existing;
 
-      let y = 0;
-      let swayPhase = 0; // わずかな左右の揺れ用
-      let frameIndex = 0;
+      const entry: SpriteEntry = {
+        img: new Image(),
+        status: "loading",
+      };
+      entry.img.src = buildSpriteUrl(meebitId);
+      entry.img.addEventListener("load", () => {
+        entry.status = "loaded";
+      });
+      entry.img.addEventListener("error", () => {
+        entry.status = "error";
+      });
+      spriteCacheRef.current.set(meebitId, entry);
+      return entry;
+    };
 
-      const stepMs = 1000 / Math.max(1, runwayConfig.fps);
-      const holdMs = 2100; // 手前での停止時間（ms）
+    const initActor = (meebitId: number, laneIndex: 0 | 1 | 2): Actor => ({
+      id: meebitId,
+      phase: "walk_in",
+      holdRemainingMs: 0,
+      y: 0,
+      swayPhase: 0,
+      frameIndex: 0,
+      frameAccMs: 0,
+      laneIndex,
+    });
 
-      const WALK_IN_ROW_INDEX = 3; // 4行目
-      const POSE_ROW_INDEX = 3; // 4行目
-      const POSE_FRAME_INDEX = 7; // 8列目（0-based）
-      const WALK_OUT_ROW_INDEX = 1; // 2行目
+    const resetRunForNewLineup = () => {
+      singleActorRef.current = null;
+      finaleActorsRef.current = [];
+      finaleNextSpawnIndexRef.current = 0;
+      finaleSpawnAccMsRef.current = 0;
+      finaleStartRequestedRef.current = false;
+      setHasFinalePlayed(false);
+      setRunwayMode("single");
+    };
 
-      const tick = (timestampMs: number) => {
-        if (disposed) return;
+    // lineup変更直後などで index が範囲外になった場合に備える
+    if (currentMeebitIndex >= meebitIds.length) {
+      setCurrentMeebitIndex(0);
+    }
 
-        const { width, height, dpr } = resizeCanvasToContainer(canvas);
-        drawRunwayBackground(ctx, width, height, timestampMs);
+    const triggerFinale = () => {
+      // 連続トリガー防止（stateは非同期なのでrefでガード）
+      if (finaleStartRequestedRef.current) return;
+      finaleStartRequestedRef.current = true;
 
-        const { topY, bottomY, centerX } = getRunwayGeometry(width, height);
-        if (y === 0) {
-          // 初回だけスタート位置を確定（トップの少し下）
-          y = topY + 10 * dpr;
+      // フィナーレは「すぐに」開始（暗転は被せるだけ）
+      setHasFinalePlayed(true);
+      setRunwayMode("finale");
+      setErrorMessage(null);
+
+      // フィナーレは先頭から全員を連続で出す
+      finaleActorsRef.current = [];
+      finaleNextSpawnIndexRef.current = 0;
+      finaleSpawnAccMsRef.current = FINALE_SPAWN_INTERVAL_MS; // 即スポーン
+      singleActorRef.current = null;
+
+      // 暗転演出だけ被せる（開始を待たない）
+      clearBlackoutTimeouts();
+      setIsBlackout(true);
+      blackoutTimeoutsRef.current.push(
+        window.setTimeout(() => {
+          setIsBlackout(false);
+        }, BLACKOUT_FADE_MS + BLACKOUT_HOLD_MS),
+      );
+    };
+
+    const advanceToNextSingle = () => {
+      scheduleBlackout(() => {
+        setCurrentMeebitIndex((prev) => (prev + 1) % Math.max(1, meebitIds.length));
+        setErrorMessage(null);
+      });
+    };
+
+    const updateAndDrawActor = (params: {
+      actor: Actor;
+      width: number;
+      height: number;
+      dpr: number;
+      deltaMs: number;
+      topY: number;
+      bottomY: number;
+      centerX: number;
+      topHalf: number;
+      bottomHalf: number;
+    }): { actor: Actor; done: boolean } => {
+      const {
+        actor,
+        width,
+        dpr,
+        deltaMs,
+        topY,
+        bottomY,
+        centerX,
+        topHalf,
+        bottomHalf,
+      } = params;
+
+      const WALK_IN_ROW_INDEX = 3;
+      const POSE_ROW_INDEX = 3;
+      const POSE_FRAME_INDEX = 7;
+      const WALK_OUT_ROW_INDEX = 1;
+      const holdMs = 2100;
+
+      // init
+      if (actor.y === 0) {
+        actor.y = topY + 10 * dpr;
+      }
+
+      // move
+      const pxPerMs = runwayConfig.pixelsPerSecond / 1000;
+      if (actor.phase === "walk_in") {
+        actor.y += pxPerMs * deltaMs * dpr;
+      } else if (actor.phase === "pose_front") {
+        actor.holdRemainingMs -= deltaMs;
+        if (actor.holdRemainingMs <= 0) {
+          actor.phase = "walk_out";
         }
+      } else {
+        actor.y -= pxPerMs * deltaMs * dpr * 1.1;
+      }
 
-        // 時間更新
-        const last = lastTimestampRef.current ?? timestampMs;
-        const deltaMs = timestampMs - last;
-        lastTimestampRef.current = timestampMs;
-        accumulatedMsRef.current += deltaMs;
+      actor.swayPhase += deltaMs * 0.008;
 
-        // 速度：px/s を ms に変換
-        const pxPerMs = runwayConfig.pixelsPerSecond / 1000;
-
-        // アニメ進行（移動）
-        if (phase === "walk_in") {
-          // CanvasはDPR分だけピクセルが増えるので、CSS px/s を canvas px/s に合わせる
-          y += pxPerMs * deltaMs * dpr;
-        } else if (phase === "pose_front") {
-          holdRemainingMs -= deltaMs;
-          if (holdRemainingMs <= 0) {
-            phase = "walk_out";
-          }
-        } else if (phase === "walk_out") {
-          // 奥へ戻る（少しだけ速くしてテンポ良く）
-          y -= pxPerMs * deltaMs * dpr * 1.1;
+      // frame
+      if (actor.phase === "pose_front") {
+        actor.frameIndex = POSE_FRAME_INDEX;
+        actor.frameAccMs = 0;
+      } else {
+        const stepMs = 1000 / Math.max(1, runwayConfig.fps);
+        actor.frameAccMs += deltaMs;
+        while (actor.frameAccMs >= stepMs) {
+          actor.frameIndex = (actor.frameIndex + 1) % spriteConfig.columns;
+          actor.frameAccMs -= stepMs;
         }
+      }
 
-        swayPhase += deltaMs * 0.008; // 見た目の自然さ（過度に揺れない程度）
+      // perspective & placement
+      const t = clamp((actor.y - topY) / Math.max(1, bottomY - topY), 0, 1);
+      const farScale = 0.45;
+      const scale = lerp(farScale, DEFAULT_NEAR_SCALE, t);
+      const dSize = runwayConfig.characterSize * scale * dpr;
 
-        // フレーム更新（fps固定）
-        if (phase === "pose_front") {
-          frameIndex = POSE_FRAME_INDEX;
-          accumulatedMsRef.current = 0;
-        } else {
-          while (accumulatedMsRef.current >= stepMs) {
-            frameIndex = (frameIndex + 1) % spriteConfig.columns;
-            accumulatedMsRef.current -= stepMs;
-          }
-        }
+      const half = lerp(topHalf, bottomHalf, t);
+      const laneOffsetRatio = actor.laneIndex === 0 ? -0.22 : actor.laneIndex === 2 ? 0.22 : 0;
+      const laneOffset = laneOffsetRatio * half;
 
-        // 遠近（奥→手前に向かうほど大きく）
-        const t = clamp((y - topY) / Math.max(1, bottomY - topY), 0, 1);
-        const farScale = 0.45;
-        const scale = lerp(farScale, DEFAULT_NEAR_SCALE, t);
-        const dSize = runwayConfig.characterSize * scale * dpr;
+      const sway =
+        actor.phase === "pose_front" ? 0 : Math.sin(actor.swayPhase) * 2 * dpr;
+      const dx = centerX - dSize / 2 + laneOffset + sway;
+      const dy = actor.y - dSize;
 
-        // 中央線上を歩く：左右の揺れを少しだけ足す
-        // 停止中（手前でポーズ）は揺れゼロにして違和感を減らす
-        const sway = phase === "pose_front" ? 0 : Math.sin(swayPhase) * 2 * dpr;
-        const dx = centerX - dSize / 2 + sway;
-        // 足元をyに合わせる（キャラの下端を進行位置に）
-        const dy = y - dSize;
+      // fade out near the end of walk_out
+      const fadeOutStartT = 0.22;
+      const alpha =
+        actor.phase === "walk_out"
+          ? t > fadeOutStartT
+            ? 1
+            : clamp(t / Math.max(0.001, fadeOutStartT), 0, 1)
+          : 1;
 
-        // フェードアウト（walk_outの「退場直前」だけ透明に）
-        // t: top=0 / bottom=1。walk_out では 1→0 に向かう。
-        const fadeOutStartT = 0.22; // 0〜1のうち、奥に近づいた最後の区間だけ消す
-        const alpha =
-          phase === "walk_out"
-            ? t > fadeOutStartT
-              ? 1
-              : clamp(t / Math.max(0.001, fadeOutStartT), 0, 1)
-            : 1;
+      // phase transitions
+      if (actor.phase === "walk_in" && actor.y >= bottomY) {
+        actor.phase = "pose_front";
+        actor.holdRemainingMs = holdMs;
+        actor.y = bottomY;
+        actor.frameIndex = POSE_FRAME_INDEX;
+      }
 
+      const done = actor.phase === "walk_out" && (actor.y <= topY || alpha <= 0.01);
+
+      const spriteEntry = getSpriteEntry(actor.id);
+      if (spriteEntry.status === "error") {
+        return { actor, done: true };
+      }
+      if (spriteEntry.status === "loaded") {
         const rowIndex =
-          phase === "walk_out"
+          actor.phase === "walk_out"
             ? WALK_OUT_ROW_INDEX
-            : phase === "pose_front"
+            : actor.phase === "pose_front"
               ? POSE_ROW_INDEX
               : WALK_IN_ROW_INDEX;
 
@@ -698,8 +822,8 @@ export function MeebitRunway() {
         ctx.globalAlpha = alpha;
         drawSpriteFrame({
           ctx,
-          sprite,
-          frameIndex,
+          sprite: spriteEntry.img,
+          frameIndex: actor.frameIndex,
           rowIndex,
           columns: spriteConfig.columns,
           rows: spriteConfig.rows,
@@ -708,129 +832,174 @@ export function MeebitRunway() {
           dSize,
         });
         ctx.restore();
+      }
 
-        // フェーズ遷移
-        if (phase === "walk_in" && y >= bottomY) {
-          // 手前に到達：ポーズして停止
-          phase = "pose_front";
-          holdRemainingMs = holdMs;
-          y = bottomY;
-          frameIndex = POSE_FRAME_INDEX;
+      return { actor, done };
+    };
+
+    const drawStaticPreview = () => {
+      const { width, height, dpr } = resizeCanvasToContainer(canvas);
+      drawRunwayBackground(ctx, width, height, 0);
+      const { topY, bottomY, centerX, topHalf, bottomHalf } = getRunwayGeometry(
+        width,
+        height,
+      );
+
+      const actor = initActor(currentMeebitId, 1);
+      actor.phase = "pose_front";
+      actor.holdRemainingMs = 999999;
+      actor.y = bottomY;
+      actor.frameIndex = 7;
+
+      updateAndDrawActor({
+        actor,
+        width,
+        height,
+        dpr,
+        deltaMs: 0,
+        topY,
+        bottomY,
+        centerX,
+        topHalf,
+        bottomHalf,
+      });
+    };
+
+    if (!isPlaying) {
+      drawStaticPreview();
+      return;
+    }
+
+    setErrorMessage(null);
+    stop();
+
+    const tick = (timestampMs: number) => {
+      if (disposed) return;
+
+      const { width, height, dpr } = resizeCanvasToContainer(canvas);
+      drawRunwayBackground(ctx, width, height, timestampMs);
+
+      const { topY, bottomY, centerX, topHalf, bottomHalf } = getRunwayGeometry(
+        width,
+        height,
+      );
+
+      const last = lastTimestampRef.current ?? timestampMs;
+      const deltaMs = timestampMs - last;
+      lastTimestampRef.current = timestampMs;
+
+      if (runwayMode === "single") {
+        const id = currentMeebitId;
+        const current = singleActorRef.current;
+        if (!current || current.id !== id) {
+          singleActorRef.current = initActor(id, 1);
         }
 
-        if (phase === "walk_out" && (y <= topY || alpha <= 0.01)) {
-          // 退場完了：次のMeebitへ
+        const updated = updateAndDrawActor({
+          actor: singleActorRef.current!,
+          width,
+          height,
+          dpr,
+          deltaMs,
+          topY,
+          bottomY,
+          centerX,
+          topHalf,
+          bottomHalf,
+        });
+        singleActorRef.current = updated.actor;
+
+        if (updated.done) {
+          singleActorRef.current = null;
+
           if (meebitIds.length >= 2) {
-            stop();
-            scheduleBlackoutToNextMeebit();
-            return; // 次のtickは新しいspriteのeffectで開始する
+            const isLast = currentMeebitIndex === meebitIds.length - 1;
+            if (isLast && !hasFinalePlayed) {
+              triggerFinale();
+              return;
+            }
+            advanceToNextSingle();
+            return;
           }
-
-          // 1体だけの場合は最初から再入場
-          phase = "walk_in";
-          y = topY + 10 * dpr;
-          frameIndex = 0;
+        }
+      } else {
+        // finale
+        finaleSpawnAccMsRef.current += deltaMs;
+        while (
+          finaleSpawnAccMsRef.current >= FINALE_SPAWN_INTERVAL_MS &&
+          finaleNextSpawnIndexRef.current < meebitIds.length
+        ) {
+          const spawnIndex = finaleNextSpawnIndexRef.current;
+          const id = meebitIds[spawnIndex]!;
+          const laneIndex = (spawnIndex % 3) as 0 | 1 | 2;
+          finaleActorsRef.current.push(initActor(id, laneIndex));
+          finaleNextSpawnIndexRef.current += 1;
+          finaleSpawnAccMsRef.current -= FINALE_SPAWN_INTERVAL_MS;
         }
 
-        animationFrameIdRef.current = requestAnimationFrame(tick);
-      };
+        // 遠い→近い順に描画したいので、更新後のtでソートするために一旦更新
+        const nextActors: Array<{ actor: Actor; t: number }> = [];
+        for (const actor of finaleActorsRef.current) {
+          const res = updateAndDrawActor({
+            actor,
+            width,
+            height,
+            dpr,
+            deltaMs,
+            topY,
+            bottomY,
+            centerX,
+            topHalf,
+            bottomHalf,
+          });
+          if (!res.done) {
+            const t = clamp(
+              (res.actor.y - topY) / Math.max(1, bottomY - topY),
+              0,
+              1,
+            );
+            nextActors.push({ actor: res.actor, t });
+          }
+        }
+
+        // 描画順は「遠い→近い」にしたいので t の小さい順で保持
+        nextActors.sort((a, b) => a.t - b.t);
+        finaleActorsRef.current = nextActors.map((x) => x.actor);
+
+        const allSpawned = finaleNextSpawnIndexRef.current >= meebitIds.length;
+        const noneLeft = finaleActorsRef.current.length === 0;
+        if (allSpawned && noneLeft) {
+          scheduleBlackout(() => {
+            resetRunForNewLineup();
+            setCurrentMeebitIndex(0);
+          });
+          return;
+        }
+      }
 
       animationFrameIdRef.current = requestAnimationFrame(tick);
     };
 
-    const handleLoad = () => {
-      if (disposed) return;
-      if (sprite.width === 0 || sprite.height === 0) {
-        setErrorMessage("Failed to load sprite image (image size is 0).");
-        return;
-      }
-
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
-        setErrorMessage("Failed to initialize canvas.");
-        return;
-      }
-
-      setErrorMessage(null);
-      stop();
-
-      // isPlaying が false の場合は最初の1フレームだけ描画して止める
-      const { width, height, dpr } = resizeCanvasToContainer(canvas);
-      const { topY, centerX } = getRunwayGeometry(width, height);
-      drawRunwayBackground(ctx, width, height, 0);
-      const previewScale = 0.9;
-      drawSpriteFrame({
-        ctx,
-        sprite,
-        frameIndex: 0,
-        rowIndex: spriteConfig.rowIndex,
-        columns: spriteConfig.columns,
-        rows: spriteConfig.rows,
-        dx: centerX - (runwayConfig.characterSize * previewScale * dpr) / 2,
-        dy: topY + (height * 0.62 - topY) * 0.75 - runwayConfig.characterSize * previewScale * dpr,
-        dSize: runwayConfig.characterSize * previewScale * dpr,
-      });
-
-      if (isPlaying) {
-        start(ctx);
-      }
-    };
-
-    const handleError = () => {
-      if (disposed) return;
-      setErrorMessage(
-        `Failed to load sprite image (ID: ${currentMeebitId}).`,
-      );
-      stop();
-
-      // 失敗したら次へ（複数ある場合）
-      if (meebitIds.length >= 2) {
-        scheduleBlackoutToNextMeebit();
-      }
-    };
-
-    sprite.addEventListener("load", handleLoad);
-    sprite.addEventListener("error", handleError);
+    animationFrameIdRef.current = requestAnimationFrame(tick);
 
     const onResize = () => {
-      // 再描画は次のtickで行う（止まっている場合は手動で再描画したいが、最小構成として割愛）
-      if (!isPlaying) {
-        const ctx = canvas.getContext("2d");
-        if (!ctx || sprite.width === 0) return;
-        const { width, height, dpr } = resizeCanvasToContainer(canvas);
-        const { topY, centerX } = getRunwayGeometry(width, height);
-        drawRunwayBackground(ctx, width, height, 0);
-        const previewScale = 0.9;
-        drawSpriteFrame({
-          ctx,
-          sprite,
-          frameIndex: 0,
-          rowIndex: spriteConfig.rowIndex,
-          columns: spriteConfig.columns,
-          rows: spriteConfig.rows,
-          dx: centerX - (runwayConfig.characterSize * previewScale * dpr) / 2,
-          dy: topY + (height * 0.62 - topY) * 0.75 - runwayConfig.characterSize * previewScale * dpr,
-          dSize: runwayConfig.characterSize * previewScale * dpr,
-        });
-      }
+      if (!isPlaying) drawStaticPreview();
     };
-
     window.addEventListener("resize", onResize);
 
     return () => {
       disposed = true;
       window.removeEventListener("resize", onResize);
-      sprite.removeEventListener("load", handleLoad);
-      sprite.removeEventListener("error", handleError);
       stop();
     };
-    // spriteConfig はuseMemo固定、runwayConfig/isPlaying はアニメの再初期化に必要
   }, [
     currentMeebitId,
-    currentSpriteSrc,
+    currentMeebitIndex,
+    hasFinalePlayed,
     isPlaying,
-    meebitIds.length,
+    meebitIds,
     runwayConfig,
+    runwayMode,
     spriteConfig,
   ]);
 
@@ -895,6 +1064,13 @@ export function MeebitRunway() {
                   const nextIds = ids.length >= 1 ? ids : [DEFAULT_MEEBIT_ID];
                   setMeebitIds(nextIds);
                   setCurrentMeebitIndex(0);
+                  setRunwayMode("single");
+                  setHasFinalePlayed(false);
+                  singleActorRef.current = null;
+                  finaleActorsRef.current = [];
+                  finaleNextSpawnIndexRef.current = 0;
+                  finaleSpawnAccMsRef.current = 0;
+                  finaleStartRequestedRef.current = false;
                   setErrorMessage(null);
                 }}
               >
@@ -908,6 +1084,13 @@ export function MeebitRunway() {
                   setLineupInput(`${DEFAULT_MEEBIT_ID}`);
                   setMeebitIds([DEFAULT_MEEBIT_ID]);
                   setCurrentMeebitIndex(0);
+                  setRunwayMode("single");
+                  setHasFinalePlayed(false);
+                  singleActorRef.current = null;
+                  finaleActorsRef.current = [];
+                  finaleNextSpawnIndexRef.current = 0;
+                  finaleSpawnAccMsRef.current = 0;
+                  finaleStartRequestedRef.current = false;
                   setErrorMessage(null);
                 }}
               >
