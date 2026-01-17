@@ -172,7 +172,7 @@ function drawStreetRunway(params: {
 
   // センターライン（LED風）
   ctx.save();
-  ctx.strokeStyle = "rgba(255, 80, 210, 0.34)";
+  ctx.strokeStyle = "rgba(0, 255, 210, 0.34)";
   ctx.lineWidth = Math.max(1, Math.floor(width * 0.002));
   ctx.setLineDash([Math.max(10, width * 0.02), Math.max(14, width * 0.03)]);
   ctx.beginPath();
@@ -929,7 +929,7 @@ export function MeebitRunway() {
           <div
             className={[
               "pointer-events-none absolute inset-0 z-20 bg-black transition-opacity",
-              isBlackout ? "opacity-100" : "opacity-0",
+              isBlackout ? "opacity-70" : "opacity-0",
             ].join(" ")}
             style={{ transitionDuration: `${BLACKOUT_FADE_MS}ms` }}
           />
