@@ -720,10 +720,12 @@ export function MeebitRunway() {
       centerX: number;
       topHalf: number;
       bottomHalf: number;
+      maxActorHeightRatio?: number;
     }): { actor: Actor; done: boolean } => {
       const {
         actor,
         width,
+        height,
         dpr,
         deltaMs,
         topY,
@@ -731,6 +733,7 @@ export function MeebitRunway() {
         centerX,
         topHalf,
         bottomHalf,
+        maxActorHeightRatio = 0.78,
       } = params;
 
       const WALK_IN_ROW_INDEX = 3;
@@ -775,7 +778,17 @@ export function MeebitRunway() {
       // perspective & placement
       const t = clamp((actor.y - topY) / Math.max(1, bottomY - topY), 0, 1);
       const farScale = 0.45;
-      const scale = lerp(farScale, DEFAULT_NEAR_SCALE, t);
+      // SPなどでキャンバスの高さが小さい場合、手前で大きくなりすぎて頭が切れやすい。
+      // dSize を突然キャップすると拡大が急に止まり、動きが不自然になりやすい。
+      // そこで「手前スケール（nearScale）」を動的に下げて、拡大を最後まで滑らかにする。
+      const maxDSize = height * maxActorHeightRatio; // canvas px
+      const maxNearScaleByHeight =
+        maxDSize / Math.max(1, runwayConfig.characterSize * dpr);
+      const effectiveNearScale = Math.min(
+        DEFAULT_NEAR_SCALE,
+        maxNearScaleByHeight,
+      );
+      const scale = lerp(farScale, effectiveNearScale, t);
       const dSize = runwayConfig.characterSize * scale * dpr;
 
       const half = lerp(topHalf, bottomHalf, t);
@@ -1109,7 +1122,11 @@ export function MeebitRunway() {
           )}
         </div>
 
-        <div className="relative h-[420px] w-full overflow-hidden rounded-2xl border border-black/10 bg-black shadow-sm dark:border-white/10">
+        <div
+          className="relative w-full overflow-hidden rounded-2xl border border-black/10 bg-black shadow-sm dark:border-white/10"
+          // SPでも縦横比が崩れないように固定（動画枠っぽく）
+          style={{ aspectRatio: "16 / 9" }}
+        >
           <audio ref={audioRef} src="/music/Meebits.mp3" playsInline />
           <canvas ref={canvasRef} className="h-full w-full" />
           <div
