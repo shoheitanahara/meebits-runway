@@ -733,7 +733,8 @@ export function MeebitRunway() {
         centerX,
         topHalf,
         bottomHalf,
-        maxActorHeightRatio = 0.78,
+        // SPでは高さが短くなりがちなので、手前最大サイズは控えめに
+        maxActorHeightRatio = 0.5,
       } = params;
 
       const WALK_IN_ROW_INDEX = 3;
@@ -747,8 +748,25 @@ export function MeebitRunway() {
         actor.y = topY + 10 * dpr;
       }
 
+      // PCの見た目は維持しつつ、SPでは相対的に大きくなりすぎないよう基準サイズを可変にする。
+      // - PCでは上限(=runwayConfig.characterSize)が効いて 160px のまま
+      // - SPでは canvas の大きさに合わせて基準サイズが小さくなる
+      const cssWidth = width / Math.max(1, dpr);
+      const cssHeight = height / Math.max(1, dpr);
+      const baseCharacterSizeCss = Math.min(
+        runwayConfig.characterSize,
+        cssWidth * 0.28,
+        cssHeight * 0.55,
+      );
+
       // move
-      const pxPerMs = runwayConfig.pixelsPerSecond / 1000;
+      // 画面が小さい（=基準サイズが小さい）ほど移動速度も落とし、SPで速すぎる体感を抑える
+      const speedScale = clamp(
+        baseCharacterSizeCss / Math.max(1, runwayConfig.characterSize),
+        0.1,
+        1,
+      );
+      const pxPerMs = (runwayConfig.pixelsPerSecond * speedScale) / 1000;
       if (actor.phase === "walk_in") {
         actor.y += pxPerMs * deltaMs * dpr;
       } else if (actor.phase === "pose_front") {
@@ -778,18 +796,19 @@ export function MeebitRunway() {
       // perspective & placement
       const t = clamp((actor.y - topY) / Math.max(1, bottomY - topY), 0, 1);
       const farScale = 0.45;
+
       // SPなどでキャンバスの高さが小さい場合、手前で大きくなりすぎて頭が切れやすい。
       // dSize を突然キャップすると拡大が急に止まり、動きが不自然になりやすい。
       // そこで「手前スケール（nearScale）」を動的に下げて、拡大を最後まで滑らかにする。
       const maxDSize = height * maxActorHeightRatio; // canvas px
       const maxNearScaleByHeight =
-        maxDSize / Math.max(1, runwayConfig.characterSize * dpr);
+        maxDSize / Math.max(1, baseCharacterSizeCss * dpr);
       const effectiveNearScale = Math.min(
         DEFAULT_NEAR_SCALE,
         maxNearScaleByHeight,
       );
       const scale = lerp(farScale, effectiveNearScale, t);
-      const dSize = runwayConfig.characterSize * scale * dpr;
+      const dSize = baseCharacterSizeCss * scale * dpr;
 
       const half = lerp(topHalf, bottomHalf, t);
       const laneOffsetRatio = actor.laneIndex === 0 ? -0.22 : actor.laneIndex === 2 ? 0.22 : 0;
