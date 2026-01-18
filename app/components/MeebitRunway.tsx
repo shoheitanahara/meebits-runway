@@ -390,7 +390,9 @@ const FINALE_SPAWN_INTERVAL_MS = 800;
 function buildSpriteUrl(meebitId: number): string {
   // デフォルトIDはローカルのスプライトを優先（開発体験が良い）
   if (meebitId === DEFAULT_MEEBIT_ID) return "/images/4274.png";
-  return `https://files.meebits.app/sprites/${meebitId}.png`;
+  // NOTE: 直接外部URLをCanvasに描画すると「tainted canvas」になり、スクショ保存(toBlob)が失敗する。
+  // 同一オリジンのRoute Handler経由で取得して回避する。
+  return `/api/sprites/${meebitId}`;
 }
 
 function parseMeebitIds(input: string): number[] {
@@ -581,6 +583,47 @@ export function MeebitRunway() {
       () => setAudioAutoplayBlocked(true),
     );
   }, [isPlaying]);
+
+  const handleCapture = async () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const filename = `meebits-runway-${currentMeebitId}-${new Date().toISOString().replaceAll(":", "-")}.png`;
+
+    try {
+      // toBlob が使える環境ではメモリ効率が良い
+      if (canvas.toBlob) {
+        const blob = await new Promise<Blob | null>((resolve) => {
+          canvas.toBlob((b) => resolve(b), "image/png");
+        });
+        if (!blob) return;
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        return;
+      }
+
+      // fallback（古いSafari等）
+      const dataUrl = canvas.toDataURL("image/png");
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (e) {
+      // 外部画像を直接描画していると「tainted canvas」で失敗する
+      setErrorMessage(
+        "Screenshot failed (tainted canvas). Please try again after the sprite loads via /api/sprites.",
+      );
+    }
+  };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -1161,6 +1204,16 @@ export function MeebitRunway() {
               {meebitIds.length}
             </span>
           </div>
+        </div>
+
+        <div className="flex items-center justify-end">
+          <button
+            type="button"
+            onClick={() => void handleCapture()}
+            className="inline-flex h-10 items-center justify-center rounded-full border border-black/10 bg-white px-4 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-50 disabled:opacity-50 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-50 dark:hover:bg-zinc-900"
+          >
+            Capture
+          </button>
         </div>
       </div>
     </section>
