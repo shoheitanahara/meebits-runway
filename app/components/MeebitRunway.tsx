@@ -1,6 +1,5 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type SpriteSheetConfig = Readonly<{
@@ -519,10 +518,6 @@ function drawSpriteFrame(params: {
 }
 
 export function MeebitRunway() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const animationFrameIdRef = useRef<number | null>(null);
@@ -557,17 +552,17 @@ export function MeebitRunway() {
 
   const setQueryIdsParam = useCallback(
     (value: string | null) => {
-      const params = new URLSearchParams(searchParams.toString());
-      if (value == null || value.length === 0) {
-        params.delete("ids");
-      } else {
-        params.set("ids", value);
-      }
-      const qs = params.toString();
-      const href = qs.length >= 1 ? `${pathname}?${qs}` : pathname;
-      router.replace(href, { scroll: false });
+      // NOTE: `next/navigation` を使うと静的エクスポート時にプリレンダーで落ちるケースがあるため、
+      // URL同期はクライアントの History API で完結させる。
+      if (typeof window === "undefined") return;
+
+      const url = new URL(window.location.href);
+      if (value == null || value.length === 0) url.searchParams.delete("ids");
+      else url.searchParams.set("ids", value);
+
+      window.history.replaceState(null, "", url.toString());
     },
-    [pathname, router, searchParams],
+    [],
   );
 
   const applyLineup = useCallback(
@@ -643,19 +638,29 @@ export function MeebitRunway() {
     [],
   );
 
-  // URL: `?ids=4274,17600,12345` を受け取って、lineupを初期化して開始する
-  const hasIdsParam = searchParams.has("ids");
-  const idsParamValue = searchParams.get("ids") ?? "";
   useEffect(() => {
-    if (!hasIdsParam) return;
+    // URL: `?ids=4274,17600,12345` を受け取って、lineupを初期化して開始する
+    // - 初回マウント時に1回読む
+    // - 戻る/進む(popstate)でも反映する
+    if (typeof window === "undefined") return;
 
-    const ids = parseMeebitIds(idsParamValue);
-    const nextIds = ids.length >= 1 ? ids : [DEFAULT_MEEBIT_ID];
+    const applyFromLocation = () => {
+      const params = new URLSearchParams(window.location.search);
+      if (!params.has("ids")) return;
 
-    // URL変更 → state反映 を冪等にして、無限ループを避ける
-    if (areSameMeebitIds(nextIds, meebitIds)) return;
-    applyLineup(nextIds, { syncUrl: false, updateInput: true });
-  }, [applyLineup, hasIdsParam, idsParamValue, meebitIds]);
+      const idsParamValue = params.get("ids") ?? "";
+      const ids = parseMeebitIds(idsParamValue);
+      const nextIds = ids.length >= 1 ? ids : [DEFAULT_MEEBIT_ID];
+
+      // URL変更 → state反映 を冪等にして、無限ループを避ける
+      if (areSameMeebitIds(nextIds, meebitIds)) return;
+      applyLineup(nextIds, { syncUrl: false, updateInput: true });
+    };
+
+    applyFromLocation();
+    window.addEventListener("popstate", applyFromLocation);
+    return () => window.removeEventListener("popstate", applyFromLocation);
+  }, [applyLineup, meebitIds]);
 
   useEffect(() => {
     // unmount時にタイマーを掃除
