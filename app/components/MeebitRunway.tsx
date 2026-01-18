@@ -413,6 +413,45 @@ function parseMeebitIds(input: string): number[] {
   return ids;
 }
 
+function getRandomIntInclusive(min: number, max: number): number {
+  // NOTE: 可能なら crypto を使って、Math.random より偏りにくい乱数を生成する。
+  // さらに modulo bias を避けるため、rejection sampling を使う。
+  const range = max - min + 1;
+  if (range <= 0) return min;
+
+  const cryptoObj = globalThis.crypto;
+  if (!cryptoObj?.getRandomValues) {
+    return min + Math.floor(Math.random() * range);
+  }
+
+  const buffer = new Uint32Array(1);
+  const limit = Math.floor(0x100000000 / range) * range; // 2^32 の範囲内で range の倍数
+  while (true) {
+    cryptoObj.getRandomValues(buffer);
+    const value = buffer[0]!;
+    if (value < limit) return min + (value % range);
+  }
+}
+
+function generateUniqueRandomMeebitIds(count: number): number[] {
+  // UI要件: 1..20000 から count 個を重複なしでランダムに生成
+  const uniqueIds = new Set<number>();
+  const maxAttempts = Math.max(200, count * 50); // 無限ループ保険（通常ここに到達しない）
+
+  for (let i = 0; i < maxAttempts && uniqueIds.size < count; i += 1) {
+    uniqueIds.add(getRandomIntInclusive(MIN_MEEBIT_ID, MAX_MEEBIT_ID));
+  }
+
+  // 念のため、上限に達した場合は残りを線形に埋める（count=10ならまず発生しない）
+  if (uniqueIds.size < count) {
+    for (let id = MIN_MEEBIT_ID; id <= MAX_MEEBIT_ID && uniqueIds.size < count; id += 1) {
+      uniqueIds.add(id);
+    }
+  }
+
+  return Array.from(uniqueIds);
+}
+
 function serializeMeebitIds(ids: number[]): string {
   // URLパラメータ向けに最小表現にする（カンマ区切り）
   return ids.join(",");
@@ -595,6 +634,12 @@ export function MeebitRunway() {
     },
     [setQueryIdsParam],
   );
+
+  const handleRandomApply = useCallback(() => {
+    // 1..20000 のIDを10個ランダム生成して適用
+    const nextIds = generateUniqueRandomMeebitIds(10);
+    applyLineup(nextIds, { syncUrl: true, updateInput: true });
+  }, [applyLineup]);
 
   const handleShareUrl = useCallback(async () => {
     try {
@@ -1256,6 +1301,14 @@ export function MeebitRunway() {
                 }}
               >
                 Apply
+              </button>
+
+              <button
+                type="button"
+                className="inline-flex h-10 items-center justify-center rounded-full border border-black/10 bg-white px-4 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-50 disabled:opacity-50 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-50 dark:hover:bg-zinc-900"
+                onClick={handleRandomApply}
+              >
+                Random
               </button>
 
               <button
