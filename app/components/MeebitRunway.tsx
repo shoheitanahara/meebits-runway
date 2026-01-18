@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type SpriteSheetConfig = Readonly<{
   columns: number;
@@ -413,6 +414,19 @@ function parseMeebitIds(input: string): number[] {
   return ids;
 }
 
+function serializeMeebitIds(ids: number[]): string {
+  // URLパラメータ向けに最小表現にする（カンマ区切り）
+  return ids.join(",");
+}
+
+function areSameMeebitIds(a: number[], b: number[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
 function drawRunwayBackground(
   ctx: CanvasRenderingContext2D,
   width: number,
@@ -505,6 +519,10 @@ function drawSpriteFrame(params: {
 }
 
 export function MeebitRunway() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const animationFrameIdRef = useRef<number | null>(null);
@@ -524,6 +542,7 @@ export function MeebitRunway() {
   // React stateはUI用。毎フレーム更新しない（パフォーマンスのため）
   const [isPlaying, setIsPlaying] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [audioAutoplayBlocked, setAudioAutoplayBlocked] = useState(false);
   const [isBlackout, setIsBlackout] = useState(false);
   const [runwayMode, setRunwayMode] = useState<RunwayMode>("single");
@@ -535,6 +554,76 @@ export function MeebitRunway() {
   const [currentMeebitIndex, setCurrentMeebitIndex] = useState(0);
 
   const currentMeebitId = meebitIds[currentMeebitIndex] ?? DEFAULT_MEEBIT_ID;
+
+  const setQueryIdsParam = useCallback(
+    (value: string | null) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (value == null || value.length === 0) {
+        params.delete("ids");
+      } else {
+        params.set("ids", value);
+      }
+      const qs = params.toString();
+      const href = qs.length >= 1 ? `${pathname}?${qs}` : pathname;
+      router.replace(href, { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
+
+  const applyLineup = useCallback(
+    (nextIds: number[], options?: { syncUrl?: boolean; updateInput?: boolean }) => {
+      setStatusMessage(null);
+      setErrorMessage(null);
+
+      if (options?.updateInput ?? true) {
+        setLineupInput(nextIds.join(", "));
+      }
+
+      setMeebitIds(nextIds);
+      setCurrentMeebitIndex(0);
+      setRunwayMode("single");
+      setHasFinalePlayed(false);
+
+      // ランウェイ状態を初期化（再現性と見た目のため）
+      singleActorRef.current = null;
+      finaleActorsRef.current = [];
+      finaleNextSpawnIndexRef.current = 0;
+      finaleSpawnAccMsRef.current = 0;
+      finaleStartRequestedRef.current = false;
+
+      // Share URL / 受け取ったURLからは「ランウェイが始まる」を優先
+      setIsPlaying(true);
+
+      if (options?.syncUrl) {
+        setQueryIdsParam(serializeMeebitIds(nextIds));
+      }
+    },
+    [setQueryIdsParam],
+  );
+
+  const handleShareUrl = useCallback(async () => {
+    try {
+      const idsValue = serializeMeebitIds(meebitIds);
+
+      const url = new URL(window.location.href);
+      url.searchParams.set("ids", idsValue);
+
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url.toString());
+        setStatusMessage("Share URL copied to clipboard.");
+        setErrorMessage(null);
+        return;
+      }
+
+      // 古い環境向けフォールバック（ユーザーが手でコピーできる）
+      window.prompt("Copy Share URL:", url.toString());
+      setStatusMessage(null);
+      setErrorMessage(null);
+    } catch {
+      setStatusMessage(null);
+      setErrorMessage("Failed to create/copy Share URL.");
+    }
+  }, [meebitIds]);
 
   const spriteConfig: SpriteSheetConfig = useMemo(
     () => ({
@@ -553,6 +642,20 @@ export function MeebitRunway() {
     }),
     [],
   );
+
+  // URL: `?ids=4274,17600,12345` を受け取って、lineupを初期化して開始する
+  const hasIdsParam = searchParams.has("ids");
+  const idsParamValue = searchParams.get("ids") ?? "";
+  useEffect(() => {
+    if (!hasIdsParam) return;
+
+    const ids = parseMeebitIds(idsParamValue);
+    const nextIds = ids.length >= 1 ? ids : [DEFAULT_MEEBIT_ID];
+
+    // URL変更 → state反映 を冪等にして、無限ループを避ける
+    if (areSameMeebitIds(nextIds, meebitIds)) return;
+    applyLineup(nextIds, { syncUrl: false, updateInput: true });
+  }, [applyLineup, hasIdsParam, idsParamValue, meebitIds]);
 
   useEffect(() => {
     // unmount時にタイマーを掃除
@@ -1091,6 +1194,7 @@ export function MeebitRunway() {
             onClick={() => {
               const next = !isPlaying;
               setIsPlaying(next);
+              setStatusMessage(null);
 
               // ユーザー操作（クリック）に紐づくので音が許可されやすい
               const audio = audioRef.current;
@@ -1127,7 +1231,10 @@ export function MeebitRunway() {
               <input
                 type="text"
                 value={lineupInput}
-                onChange={(e) => setLineupInput(e.target.value)}
+                onChange={(e) => {
+                  setLineupInput(e.target.value);
+                  setStatusMessage(null);
+                }}
                 placeholder="e.g. 4274, 17600 12345"
                 className="h-10 w-full rounded-lg border border-black/10 bg-white px-3 text-zinc-950 outline-none ring-0 placeholder:text-zinc-400 focus:border-zinc-400 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-50 dark:placeholder:text-zinc-500"
               />
@@ -1140,16 +1247,7 @@ export function MeebitRunway() {
                 onClick={() => {
                   const ids = parseMeebitIds(lineupInput);
                   const nextIds = ids.length >= 1 ? ids : [DEFAULT_MEEBIT_ID];
-                  setMeebitIds(nextIds);
-                  setCurrentMeebitIndex(0);
-                  setRunwayMode("single");
-                  setHasFinalePlayed(false);
-                  singleActorRef.current = null;
-                  finaleActorsRef.current = [];
-                  finaleNextSpawnIndexRef.current = 0;
-                  finaleSpawnAccMsRef.current = 0;
-                  finaleStartRequestedRef.current = false;
-                  setErrorMessage(null);
+                  applyLineup(nextIds, { syncUrl: true, updateInput: false });
                 }}
               >
                 Apply
@@ -1158,24 +1256,31 @@ export function MeebitRunway() {
               <button
                 type="button"
                 className="inline-flex h-10 items-center justify-center rounded-full border border-black/10 bg-white px-4 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-50 disabled:opacity-50 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-50 dark:hover:bg-zinc-900"
+                onClick={() => void handleShareUrl()}
+                disabled={errorMessage != null}
+              >
+                Share URL
+              </button>
+
+              <button
+                type="button"
+                className="inline-flex h-10 items-center justify-center rounded-full border border-black/10 bg-white px-4 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-50 disabled:opacity-50 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-50 dark:hover:bg-zinc-900"
                 onClick={() => {
-                  setLineupInput(`${DEFAULT_MEEBIT_ID}`);
-                  setMeebitIds([DEFAULT_MEEBIT_ID]);
-                  setCurrentMeebitIndex(0);
-                  setRunwayMode("single");
-                  setHasFinalePlayed(false);
-                  singleActorRef.current = null;
-                  finaleActorsRef.current = [];
-                  finaleNextSpawnIndexRef.current = 0;
-                  finaleSpawnAccMsRef.current = 0;
-                  finaleStartRequestedRef.current = false;
-                  setErrorMessage(null);
+                  setStatusMessage(null);
+                  setQueryIdsParam(null);
+                  applyLineup([DEFAULT_MEEBIT_ID], { syncUrl: false, updateInput: true });
                 }}
               >
                 Reset
               </button>
             </div>
           </div>
+
+          {statusMessage && (
+            <span className="text-sm text-emerald-600 dark:text-emerald-400">
+              {statusMessage}
+            </span>
+          )}
 
           {errorMessage && (
             <span className="text-sm text-red-600 dark:text-red-400">
