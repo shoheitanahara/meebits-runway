@@ -14,7 +14,11 @@ export function Hero(props: HeroProps) {
       className="relative isolate w-full overflow-hidden rounded-3xl border border-black/10 bg-black shadow-sm dark:border-white/10"
       aria-label="Hero"
     >
-      <div className="relative h-[46vh] max-h-[560px] min-h-[340px] w-full">
+      {/* SPでも「横長」を維持するため、固定アスペクト比で表示する */}
+      <div
+        className="relative w-full overflow-hidden"
+        style={{ aspectRatio: "16 / 9" }}
+      >
         <Image
           src="/images/firstview.png"
           alt="Meebits Runway first view"
