@@ -259,7 +259,7 @@ export function applyMotion(params: {
       BONE.rightLowerArm,
       // 基本姿勢（固定）
       // 肘を曲げる（自然な手振りの基本）
-      new Euler(-0.00, 0.0, 0.0),
+      new Euler(0.50, 0.0, 0.1),
       1.0,
     );
     // 振り幅（Strengthで増減）
@@ -276,14 +276,17 @@ export function applyMotion(params: {
       // 手首は補助（最小限）
       // 手のひらを前（カメラ）に向ける方向へ寄せる
       // NOTE: 骨軸差があるため、過剰なねじりは避ける
-      new Euler(0.0, -0.2, -0.5),
+      // NOTE:
+      // 以前は手の甲が見えやすかったため、Wave時は手首のベース回転を少し反転寄りにして
+      // “掌が見える”方向へ寄せる（モデル差を考慮して控えめに）。
+      new Euler(0.0, 0.55, 0.2),
       1.0,
     );
     addBoneOffsetEuler(
       rig,
       BONE.rightHand,
       // 手首は“味付け”程度（振りの主役は肩＋肘）
-      new Euler(0.0, 0.10 * swingFast, 0.06 * swing),
+      new Euler(0.0, 0.08 * swingFast, 0.05 * swing),
       swingStrength,
     );
     addBoneOffsetEuler(
