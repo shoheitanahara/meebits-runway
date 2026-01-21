@@ -200,8 +200,9 @@ function applyRelaxedBasePose(rig: VrmMotionRig, presetId: MotionPresetId): void
     addBoneOffsetEuler(rig, BONE.rightHand, new Euler(0.0, -0.04, -0.04), s);
   }
 
-  // 胸をほんの少し起こす
-  addBoneOffsetEuler(rig, BONE.chest, new Euler(-0.06, 0.0, 0.0), s);
+  // NOTE:
+  // 胴体（服）が潰れる個体があるため、胸の前後傾（X回転）はベース補正では行わない。
+  // 必要なら各モーション側で最小限の調整を入れる。
 }
 
 export function applyMotion(params: {

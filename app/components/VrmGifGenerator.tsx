@@ -14,6 +14,7 @@ import type {
 } from "@/types";
 import { MOTION_PRESETS } from "@/lib/motion/presets";
 import { generateVrmGif, GIF_EXPORT_SPEC } from "@/lib/export/gifExport";
+import { BACKGROUND_PRESETS } from "@/lib/background/presets";
 
 const Viewer = dynamic(() => import("./Viewer").then((m) => m.Viewer), {
   ssr: false,
@@ -297,8 +298,11 @@ export function VrmGifGenerator() {
                       disabled={isGenerating}
                       className="h-10 rounded-lg border border-black/10 bg-white px-3 text-zinc-950 outline-none focus:border-zinc-400 disabled:opacity-60 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-50"
                     >
-                      <option value="white">White</option>
-                      <option value="dark">Dark</option>
+                      {BACKGROUND_PRESETS.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.label}
+                        </option>
+                      ))}
                     </select>
                   </label>
 

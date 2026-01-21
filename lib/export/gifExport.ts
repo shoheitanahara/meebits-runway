@@ -25,15 +25,12 @@ import {
   WebGLRenderer,
 } from "three";
 import { applyVrmCameraPose } from "@/lib/camera/calcCamera";
+import { getBackgroundHex } from "@/lib/background/presets";
 
 const OUTPUT_SIZE = 512;
 const FPS = 12;
 const DURATION_SEC = 3.0;
 const FRAME_COUNT = Math.round(FPS * DURATION_SEC); // 36
-
-function backgroundToColor(mode: BackgroundMode): Color {
-  return mode === "dark" ? new Color("#0a0a0a") : new Color("#ffffff");
-}
 
 export async function generateVrmGif(params: {
   meebitId: number;
@@ -95,7 +92,7 @@ export async function generateVrmGif(params: {
     alpha: true,
   });
   renderer.setSize(OUTPUT_SIZE, OUTPUT_SIZE, false);
-  renderer.setClearColor(backgroundToColor(background), 1);
+  renderer.setClearColor(new Color(getBackgroundHex(background)), 1);
 
   const outCanvas = document.createElement("canvas");
   outCanvas.width = OUTPUT_SIZE;

@@ -23,6 +23,7 @@ import {
 import type { VRM } from "@pixiv/three-vrm";
 import { drawSpeech } from "@/lib/text/drawSpeech";
 import { applyVrmCameraPose } from "@/lib/camera/calcCamera";
+import { getBackgroundHex } from "@/lib/background/presets";
 
 type ViewerProps = Readonly<{
   meebitId: number;
@@ -118,10 +119,6 @@ function SceneContent(props: {
   return <primitive object={vrm.scene} />;
 }
 
-function backgroundToColor(mode: BackgroundMode): Color {
-  return mode === "dark" ? new Color("#0a0a0a") : new Color("#ffffff");
-}
-
 export function Viewer(props: ViewerProps) {
   const {
     meebitId,
@@ -169,7 +166,7 @@ export function Viewer(props: ViewerProps) {
     };
   }, [meebitId]);
 
-  const bg = useMemo(() => backgroundToColor(background), [background]);
+  const bg = useMemo(() => new Color(getBackgroundHex(background)), [background]);
   const speechCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   return (
