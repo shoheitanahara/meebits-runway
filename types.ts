@@ -58,3 +58,14 @@ export type SpeechPosition =
   | "bottomCenter"
   | "bottomRight";
 
+export type SpeechRenderMode = "bubble" | "textOnly";
+
+// Color presets for speech text + bubble frame (paired control in UI).
+export type SpeechStylePresetId =
+  | "classic"
+  | "inverse"
+  | "newPunk"
+  | "popYellow"
+  | "mint"
+  | "mono";
+

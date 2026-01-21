@@ -1,4 +1,4 @@
-import type { SpeechPosition } from "@/types";
+import type { SpeechPosition, SpeechRenderMode } from "@/types";
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -140,8 +140,10 @@ function drawPixelBubble(params: {
   h: number;
   tail: "up" | "down";
   tailCenterX: number;
+  fill: string;
+  stroke: string;
 }): void {
-  const { ctx, x, y, w, h, tail, tailCenterX } = params;
+  const { ctx, x, y, w, h, tail, tailCenterX, fill, stroke } = params;
   // Pixel-art-ish speech bubble:
   // - chunky black outline
   // - crisp stepped corners (no roundRect)
@@ -157,9 +159,6 @@ function drawPixelBubble(params: {
   const by = Math.round(y);
   const bw = Math.round(w);
   const bh = Math.round(h);
-
-  const fill = "rgba(255,255,255,0.96)";
-  const stroke = "rgba(0,0,0,0.98)";
 
   const clampTailX = (params2: { x: number; y: number; w: number; h: number; corner: number; tailW: number }) => {
     const { x: px, w: pw, corner: pc, tailW: ptw } = params2;
@@ -306,8 +305,23 @@ export function drawSpeech(params: {
   t: number; // seconds in [0..3]
   text: string;
   position: SpeechPosition;
+  renderMode?: SpeechRenderMode;
+  textColor?: string;
+  bubbleFillColor?: string;
+  bubbleFrameColor?: string;
 }): void {
-  const { ctx, width, height, t, text, position } = params;
+  const {
+    ctx,
+    width,
+    height,
+    t,
+    text,
+    position,
+    renderMode = "bubble",
+    textColor = "rgba(0,0,0,0.95)",
+    bubbleFillColor = "rgba(255,255,255,0.96)",
+    bubbleFrameColor = "rgba(0,0,0,0.98)",
+  } = params;
   const trimmed = text.trim();
   if (trimmed.length === 0) return;
 
@@ -371,15 +385,19 @@ export function drawSpeech(params: {
         ? bubbleX + bubbleW - tailInset
         : bubbleX + bubbleW / 2;
 
-  drawPixelBubble({
-    ctx,
-    x: bubbleX,
-    y: bubbleY,
-    w: bubbleW,
-    h: bubbleH,
-    tail,
-    tailCenterX,
-  });
+  if (renderMode === "bubble") {
+    drawPixelBubble({
+      ctx,
+      x: bubbleX,
+      y: bubbleY,
+      w: bubbleW,
+      h: bubbleH,
+      tail,
+      tailCenterX,
+      fill: bubbleFillColor,
+      stroke: bubbleFrameColor,
+    });
+  }
 
   // テキストをバブル内中央へ（バブル内座標で）
   drawPixelText({
@@ -392,8 +410,7 @@ export function drawSpeech(params: {
       maxWidth: bubbleW - padX * 2,
       pixelScale,
     }),
-    // 指定：黒文字
-    color: "rgba(0,0,0,0.95)",
+    color: textColor,
   });
 
   ctx.restore();

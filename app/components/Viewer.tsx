@@ -12,6 +12,8 @@ import type {
   MotionSpeed,
   MotionStrength,
   SpeechPosition,
+  SpeechRenderMode,
+  SpeechStylePresetId,
 } from "@/types";
 import { loadVrmFromMeebitsId } from "@/lib/vrm/loadVrm";
 import {
@@ -24,6 +26,7 @@ import type { VRM } from "@pixiv/three-vrm";
 import { drawSpeech } from "@/lib/text/drawSpeech";
 import { applyVrmCameraPose } from "@/lib/camera/calcCamera";
 import { getBackgroundHex } from "@/lib/background/presets";
+import { getSpeechStylePreset } from "@/lib/text/speechStylePresets";
 
 type ViewerProps = Readonly<{
   meebitId: number;
@@ -36,6 +39,8 @@ type ViewerProps = Readonly<{
   pan: CameraPan;
   speechText: string;
   speechPosition: SpeechPosition;
+  speechRenderMode: SpeechRenderMode;
+  speechStyleId: SpeechStylePresetId;
 }>;
 
 function SceneContent(props: {
@@ -49,8 +54,23 @@ function SceneContent(props: {
   speechCanvasRef: React.RefObject<HTMLCanvasElement | null>;
   speechText: string;
   speechPosition: SpeechPosition;
+  speechRenderMode: SpeechRenderMode;
+  speechStyleId: SpeechStylePresetId;
 }) {
-  const { vrm, motionId, strength, speed, cameraMode, framing, pan, speechCanvasRef, speechText, speechPosition } = props;
+  const {
+    vrm,
+    motionId,
+    strength,
+    speed,
+    cameraMode,
+    framing,
+    pan,
+    speechCanvasRef,
+    speechText,
+    speechPosition,
+    speechRenderMode,
+    speechStyleId,
+  } = props;
 
   const { camera } = useThree();
   const perspectiveCamera = camera as PerspectiveCamera;
@@ -103,6 +123,7 @@ function SceneContent(props: {
       if (ctx) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         if (speechText.trim().length > 0) {
+          const style = getSpeechStylePreset(speechStyleId);
           drawSpeech({
             ctx,
             width: canvas.width,
@@ -110,6 +131,10 @@ function SceneContent(props: {
             t,
             text: speechText,
             position: speechPosition,
+            renderMode: speechRenderMode,
+            textColor: style.textColor,
+            bubbleFrameColor: style.frameColor,
+            bubbleFillColor: style.fillColor,
           });
         }
       }
@@ -131,6 +156,8 @@ export function Viewer(props: ViewerProps) {
     pan,
     speechText,
     speechPosition,
+    speechRenderMode,
+    speechStyleId,
   } = props;
 
   const [vrm, setVrm] = useState<VRM | null>(null);
@@ -194,6 +221,8 @@ export function Viewer(props: ViewerProps) {
             speechCanvasRef={speechCanvasRef}
             speechText={speechText}
             speechPosition={speechPosition}
+            speechRenderMode={speechRenderMode}
+            speechStyleId={speechStyleId}
           />
         )}
       </Canvas>

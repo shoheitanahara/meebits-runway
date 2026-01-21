@@ -11,10 +11,13 @@ import type {
   MotionSpeed,
   MotionStrength,
   SpeechPosition,
+  SpeechRenderMode,
+  SpeechStylePresetId,
 } from "@/types";
 import { MOTION_PRESETS } from "@/lib/motion/presets";
 import { generateVrmGif, GIF_EXPORT_SPEC } from "@/lib/export/gifExport";
 import { BACKGROUND_PRESETS } from "@/lib/background/presets";
+import { SPEECH_STYLE_PRESETS } from "@/lib/text/speechStylePresets";
 
 const Viewer = dynamic(() => import("./Viewer").then((m) => m.Viewer), {
   ssr: false,
@@ -45,6 +48,10 @@ export function VrmGifGenerator() {
   const [speechText, setSpeechText] = useState("Hello");
   const [speechPosition, setSpeechPosition] =
     useState<SpeechPosition>("bottomCenter");
+  const [speechRenderMode, setSpeechRenderMode] =
+    useState<SpeechRenderMode>("bubble");
+  const [speechStyleId, setSpeechStyleId] =
+    useState<SpeechStylePresetId>("classic");
 
   const [motionId, setMotionId] = useState<MotionPresetId>("wave");
   const [strength, setStrength] = useState<MotionStrength>(1.0);
@@ -81,6 +88,8 @@ export function VrmGifGenerator() {
         meebitId,
         speechText,
         speechPosition,
+        speechRenderMode,
+        speechStyleId,
         motionId,
         strength,
         speed,
@@ -132,6 +141,8 @@ export function VrmGifGenerator() {
                 pan={pan}
                 speechText={speechText}
                 speechPosition={speechPosition}
+                speechRenderMode={speechRenderMode}
+                speechStyleId={speechStyleId}
               />
             </div>
 
@@ -205,6 +216,37 @@ export function VrmGifGenerator() {
                   disabled={isGenerating}
                   className="h-10 rounded-lg border border-black/10 bg-white px-3 text-zinc-950 outline-none focus:border-zinc-400 disabled:opacity-60 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-50"
                 />
+
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="flex flex-col gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                    Display
+                    <select
+                      value={speechRenderMode}
+                      onChange={(e) => setSpeechRenderMode(e.target.value as SpeechRenderMode)}
+                      disabled={isGenerating}
+                      className="h-10 rounded-lg border border-black/10 bg-white px-3 text-zinc-950 outline-none focus:border-zinc-400 disabled:opacity-60 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-50"
+                    >
+                      <option value="bubble">Bubble</option>
+                      <option value="textOnly">Text only</option>
+                    </select>
+                  </label>
+
+                  <label className="flex flex-col gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                    Style
+                    <select
+                      value={speechStyleId}
+                      onChange={(e) => setSpeechStyleId(e.target.value as SpeechStylePresetId)}
+                      disabled={isGenerating}
+                      className="h-10 rounded-lg border border-black/10 bg-white px-3 text-zinc-950 outline-none focus:border-zinc-400 disabled:opacity-60 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-50"
+                    >
+                      {SPEECH_STYLE_PRESETS.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
 
                 <div className="flex flex-col gap-2">
                   <div className="text-sm font-medium">Position</div>

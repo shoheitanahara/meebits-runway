@@ -7,6 +7,8 @@ import type {
   MotionSpeed,
   MotionStrength,
   SpeechPosition,
+  SpeechRenderMode,
+  SpeechStylePresetId,
 } from "@/types";
 import { loadVrmFromMeebitsId } from "@/lib/vrm/loadVrm";
 import {
@@ -26,6 +28,7 @@ import {
 } from "three";
 import { applyVrmCameraPose } from "@/lib/camera/calcCamera";
 import { getBackgroundHex } from "@/lib/background/presets";
+import { getSpeechStylePreset } from "@/lib/text/speechStylePresets";
 
 const OUTPUT_SIZE = 512;
 const FPS = 12;
@@ -36,6 +39,8 @@ export async function generateVrmGif(params: {
   meebitId: number;
   speechText: string;
   speechPosition: SpeechPosition;
+  speechRenderMode: SpeechRenderMode;
+  speechStyleId: SpeechStylePresetId;
   motionId: MotionPresetId;
   strength: MotionStrength;
   speed: MotionSpeed;
@@ -49,6 +54,8 @@ export async function generateVrmGif(params: {
     meebitId,
     speechText,
     speechPosition,
+    speechRenderMode,
+    speechStyleId,
     motionId,
     strength,
     speed,
@@ -122,6 +129,7 @@ export async function generateVrmGif(params: {
     // 2) 吹き出し（前面）
     outCtx.clearRect(0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
     outCtx.drawImage(glCanvas, 0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
+    const style = getSpeechStylePreset(speechStyleId);
     drawSpeech({
       ctx: outCtx,
       width: OUTPUT_SIZE,
@@ -129,6 +137,10 @@ export async function generateVrmGif(params: {
       t,
       text: speechText,
       position: speechPosition,
+      renderMode: speechRenderMode,
+      textColor: style.textColor,
+      bubbleFrameColor: style.frameColor,
+      bubbleFillColor: style.fillColor,
     });
 
     const imageData = outCtx.getImageData(0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
