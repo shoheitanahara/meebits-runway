@@ -142,56 +142,159 @@ function drawPixelBubble(params: {
   tailCenterX: number;
 }): void {
   const { ctx, x, y, w, h, tail, tailCenterX } = params;
-  const border = 4;
-  const radius = 8;
-  const tailW = 16;
-  const tailH = 10;
+  // Pixel-art-ish speech bubble:
+  // - chunky black outline
+  // - crisp stepped corners (no roundRect)
+  // - blocky tail (matches the screenshot vibe)
+  const unit = 6; // base pixel grid
+  const outline = unit * 1; // thickness
+  const corner = unit * 2; // cut-corner depth
+  const tailW = unit * 6;
+  const tailH = unit * 3;
+  const shadowOffset = unit; // subtle shadow
 
   const bx = Math.round(x);
   const by = Math.round(y);
   const bw = Math.round(w);
   const bh = Math.round(h);
 
-  // 指定：黒枠・白背景
   const fill = "rgba(255,255,255,0.96)";
-  const stroke = "rgba(0,0,0,0.95)";
+  const stroke = "rgba(0,0,0,0.98)";
 
-  const tailX = clamp(tailCenterX - tailW / 2, bx + radius + 6, bx + bw - radius - 6 - tailW);
+  const clampTailX = (params2: { x: number; y: number; w: number; h: number; corner: number; tailW: number }) => {
+    const { x: px, w: pw, corner: pc, tailW: ptw } = params2;
+    // keep tail away from corners; use unit padding to preserve “pixel steps”
+    return clamp(
+      tailCenterX - ptw / 2,
+      px + pc + unit * 2,
+      px + pw - pc - unit * 2 - ptw,
+    );
+  };
+
+  const drawPath = (params2: {
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    corner: number;
+    tailW: number;
+    tailH: number;
+    tail: "up" | "down";
+  }) => {
+    const { x: px, y: py, w: pw, h: ph, corner: pc, tailW: ptw, tailH: pth } = params2;
+    const step = unit;
+    const tx = clampTailX({ x: px, y: py, w: pw, h: ph, corner: pc, tailW: ptw });
+
+    ctx.beginPath();
+
+    // For "up" tail, carve it into the top edge; for "down", carve into the bottom edge.
+    // Start near top-left (after cut corner)
+    if (tail === "up") {
+      // top edge (left -> tail)
+      ctx.moveTo(px + pc, py);
+      ctx.lineTo(tx, py);
+      // blocky tail (upwards)
+      ctx.lineTo(tx, py - step);
+      ctx.lineTo(tx + ptw / 2 - step, py - step);
+      ctx.lineTo(tx + ptw / 2 - step, py - pth + step);
+      ctx.lineTo(tx + ptw / 2 + step, py - pth + step);
+      ctx.lineTo(tx + ptw / 2 + step, py - step);
+      ctx.lineTo(tx + ptw, py - step);
+      ctx.lineTo(tx + ptw, py);
+      // top edge (tail -> right)
+      ctx.lineTo(px + pw - pc, py);
+    } else {
+      ctx.moveTo(px + pc, py);
+      ctx.lineTo(px + pw - pc, py);
+    }
+
+    // top-right stepped corner
+    ctx.lineTo(px + pw - pc, py + step);
+    ctx.lineTo(px + pw - step, py + step);
+    ctx.lineTo(px + pw - step, py + pc);
+    ctx.lineTo(px + pw, py + pc);
+
+    // right edge
+    ctx.lineTo(px + pw, py + ph - pc);
+
+    // bottom-right stepped corner
+    ctx.lineTo(px + pw - step, py + ph - pc);
+    ctx.lineTo(px + pw - step, py + ph - step);
+    ctx.lineTo(px + pw - pc, py + ph - step);
+    ctx.lineTo(px + pw - pc, py + ph);
+
+    if (tail === "down") {
+      // bottom edge (right -> tail)
+      ctx.lineTo(tx + ptw, py + ph);
+      // blocky tail (downwards)
+      ctx.lineTo(tx + ptw, py + ph + step);
+      ctx.lineTo(tx + ptw / 2 + step, py + ph + step);
+      ctx.lineTo(tx + ptw / 2 + step, py + ph + pth - step);
+      ctx.lineTo(tx + ptw / 2 - step, py + ph + pth - step);
+      ctx.lineTo(tx + ptw / 2 - step, py + ph + step);
+      ctx.lineTo(tx, py + ph + step);
+      ctx.lineTo(tx, py + ph);
+      // bottom edge (tail -> left)
+      ctx.lineTo(px + pc, py + ph);
+    } else {
+      ctx.lineTo(px + pc, py + ph);
+    }
+
+    // bottom-left stepped corner
+    ctx.lineTo(px + pc, py + ph - step);
+    ctx.lineTo(px + step, py + ph - step);
+    ctx.lineTo(px + step, py + ph - pc);
+    ctx.lineTo(px, py + ph - pc);
+
+    // left edge
+    ctx.lineTo(px, py + pc);
+
+    // top-left stepped corner
+    ctx.lineTo(px + step, py + pc);
+    ctx.lineTo(px + step, py + step);
+    ctx.lineTo(px + pc, py + step);
+    ctx.closePath();
+  };
 
   ctx.save();
   ctx.imageSmoothingEnabled = false;
   ctx.lineJoin = "miter";
-  ctx.lineWidth = border;
 
-  // shadow（ピクセルっぽくズラす）
+  // shadow
   ctx.fillStyle = "rgba(0,0,0,0.18)";
-  ctx.strokeStyle = "rgba(0,0,0,0)";
-  ctx.beginPath();
-  ctx.roundRect(bx + 4, by + 4, bw, bh, radius);
+  drawPath({
+    x: bx + shadowOffset,
+    y: by + shadowOffset,
+    w: bw,
+    h: bh,
+    corner,
+    tailW,
+    tailH,
+    tail,
+  });
   ctx.fill();
 
-  // main bubble
+  // outer (black)
+  ctx.fillStyle = stroke;
+  drawPath({ x: bx, y: by, w: bw, h: bh, corner, tailW, tailH, tail });
+  ctx.fill();
+
+  // inner (white)
+  const innerCorner = Math.max(unit * 2, corner - outline);
+  const innerTailW = Math.max(unit * 5, tailW - outline);
+  const innerTailH = Math.max(unit * 3, tailH - outline);
   ctx.fillStyle = fill;
-  ctx.strokeStyle = stroke;
-  ctx.beginPath();
-  ctx.roundRect(bx, by, bw, bh, radius);
+  drawPath({
+    x: bx + outline,
+    y: by + outline,
+    w: bw - outline * 2,
+    h: bh - outline * 2,
+    corner: innerCorner,
+    tailW: innerTailW,
+    tailH: innerTailH,
+    tail,
+  });
   ctx.fill();
-  ctx.stroke();
-
-  // tail
-  ctx.beginPath();
-  if (tail === "down") {
-    ctx.moveTo(tailX, by + bh);
-    ctx.lineTo(tailX + tailW, by + bh);
-    ctx.lineTo(tailX + tailW / 2, by + bh + tailH);
-  } else {
-    ctx.moveTo(tailX, by);
-    ctx.lineTo(tailX + tailW, by);
-    ctx.lineTo(tailX + tailW / 2, by - tailH);
-  }
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
 
   ctx.restore();
 }
