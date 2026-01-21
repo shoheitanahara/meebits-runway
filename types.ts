@@ -68,5 +68,8 @@ export type SpeechStylePresetId =
   | "newPunk"
   | "popYellow"
   | "mint"
-  | "mono";
+  | "popCoral"
+  | "hotMagenta"
+  | "electricCyan"
+  | "charcoal";
 

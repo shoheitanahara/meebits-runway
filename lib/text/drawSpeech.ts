@@ -106,13 +106,6 @@ function drawPixelText(params: {
   pixelCtx.textAlign = "center";
   pixelCtx.textBaseline = "middle";
 
-  // 1pxドロップシャドウ（ボクセル風）
-  pixelCtx.fillStyle = "rgba(0,0,0,0.25)";
-  pixelCtx.fillText(
-    text,
-    Math.floor(layout.srcWidth / 2) + 1,
-    Math.floor(layout.srcHeight / 2) + 1,
-  );
   pixelCtx.fillStyle = color;
   pixelCtx.fillText(text, Math.floor(layout.srcWidth / 2), Math.floor(layout.srcHeight / 2));
 

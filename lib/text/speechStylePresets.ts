@@ -30,30 +30,59 @@ export const SPEECH_STYLE_PRESETS: readonly SpeechStylePreset[] = [
   {
     id: "newPunk",
     label: "New Punk (Blue)",
-    textColor: "rgba(255,255,255,0.98)",
+    // Prefer "frame color = text color" for clarity and easy styling.
+    textColor: "#2a3f6e",
     frameColor: "#2a3f6e",
-    fillColor: "rgba(255,255,255,0.92)",
+    fillColor: "rgba(255,255,255,0.96)",
   },
   {
     id: "popYellow",
     label: "Pop Yellow",
-    textColor: "rgba(0,0,0,0.95)",
-    frameColor: "#ffe600",
-    fillColor: "rgba(255,255,255,0.96)",
+    // Prefer "frame color = text color" for clarity and easy styling.
+    textColor: "#111114",
+    frameColor: "#111114",
+    // Make the bubble itself "yellow" while keeping text readable.
+    fillColor: "rgba(255, 230, 0, 0.96)",
   },
   {
     id: "mint",
     label: "Mint",
-    textColor: "rgba(0,0,0,0.95)",
-    frameColor: "#00d7ff",
+    // Prefer "frame color = text color" for clarity and easy styling.
+    textColor: "#006a7c",
+    frameColor: "#006a7c",
     fillColor: "rgba(255,255,255,0.96)",
   },
   {
-    id: "mono",
-    label: "Mono (Charcoal)",
-    textColor: "rgba(255,255,255,0.97)",
+    id: "electricCyan",
+    label: "Electric Cyan",
+    // Prefer "frame color = text color" for clarity and easy styling.
+    textColor: "#00a9c9",
+    frameColor: "#00a9c9",
+    fillColor: "rgba(255,255,255,0.96)",
+  },
+  {
+    id: "hotMagenta",
+    label: "Hot Magenta",
+    // Prefer "frame color = text color" for clarity and easy styling.
+    textColor: "#d1007a",
+    frameColor: "#d1007a",
+    fillColor: "rgba(255,255,255,0.96)",
+  },
+  {
+    id: "popCoral",
+    label: "Pop Coral",
+    // Prefer "frame color = text color" for clarity and easy styling.
+    textColor: "#c43a22",
+    frameColor: "#c43a22",
+    fillColor: "rgba(255,255,255,0.96)",
+  },
+  {
+    id: "charcoal",
+    label: "Charcoal",
+    // Prefer "frame color = text color" for clarity and easy styling.
+    textColor: "#1a1a1f",
     frameColor: "#1a1a1f",
-    fillColor: "rgba(255,255,255,0.92)",
+    fillColor: "rgba(255,255,255,0.96)",
   },
 ] as const;
 
