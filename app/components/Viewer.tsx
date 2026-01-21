@@ -84,9 +84,13 @@ function SceneContent(props: {
 
   useEffect(() => {
     // カメラは共通ロジックで計算（プレビュー/書き出しで一致させる）
-    // NOTE: cameraMode は一旦 front 固定（UIで3-4を外す）
-    void cameraMode;
-    const target = applyVrmCameraPose({ vrm, camera: perspectiveCamera, framing, pan });
+    const target = applyVrmCameraPose({
+      vrm,
+      camera: perspectiveCamera,
+      cameraMode,
+      framing,
+      pan,
+    });
     lookAtRef.current.copy(target);
   }, [vrm, perspectiveCamera, cameraMode, framing, pan]);
 

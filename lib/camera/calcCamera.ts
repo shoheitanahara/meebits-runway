@@ -1,4 +1,4 @@
-import type { CameraFraming, CameraPan } from "@/types";
+import type { CameraFraming, CameraMode, CameraPan } from "@/types";
 import type { VRM } from "@pixiv/three-vrm";
 import { Box3, type PerspectiveCamera, Vector3 } from "three";
 
@@ -24,10 +24,11 @@ function safeGetBoneWorldPosition(
 export function applyVrmCameraPose(params: {
   vrm: VRM;
   camera: PerspectiveCamera;
+  cameraMode: CameraMode;
   framing: CameraFraming;
   pan: CameraPan;
 }): Vector3 {
-  const { vrm, camera, framing, pan } = params;
+  const { vrm, camera, cameraMode, framing, pan } = params;
 
   vrm.scene.updateWorldMatrix(true, true);
 
@@ -77,7 +78,18 @@ export function applyVrmCameraPose(params: {
   const distScale = framing === "face" ? 0.78 : framing === "waistToHead" ? 0.92 : 1.12;
   const distance = Math.max(fitHeightDistance, fitWidthDistance) * distScale;
 
-  camera.position.set(0, target.y, distance);
+  // cameraMode (angle): orbit around the target on Y axis.
+  // frontRight/frontLeft are intentionally subtle to keep VRM readability.
+  const yawRad =
+    cameraMode === "front"
+      ? 0
+      : cameraMode === "frontRight"
+        ? Math.PI / 6
+        : -Math.PI / 6;
+  const camX = Math.sin(yawRad) * distance;
+  const camZ = Math.cos(yawRad) * distance;
+
+  camera.position.set(camX, target.y, camZ);
   camera.lookAt(target);
   camera.updateProjectionMatrix();
   return target;

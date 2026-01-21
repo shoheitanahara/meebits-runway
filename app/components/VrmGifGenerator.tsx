@@ -58,7 +58,7 @@ export function VrmGifGenerator() {
   const [speed, setSpeed] = useState<MotionSpeed>(1.0);
 
   const [background, setBackground] = useState<BackgroundMode>("white");
-  const [cameraMode] = useState<CameraMode>("front");
+  const [cameraMode, setCameraMode] = useState<CameraMode>("front");
   const [framing, setFraming] = useState<CameraFraming>("fullBody");
   const [pan, setPan] = useState<CameraPan>("center");
 
@@ -150,17 +150,19 @@ export function VrmGifGenerator() {
               <div className="rounded-2xl border border-black/10 bg-white p-3 dark:border-white/10 dark:bg-zinc-900/40">
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-sm font-medium">Result</span>
+                </div>
+                <div className="mt-3 overflow-hidden rounded-xl border border-black/10 dark:border-white/10">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={gifUrl} alt="Generated GIF preview" className="h-full w-full" />
+                </div>
+                <div className="mt-4 flex">
                   <a
-                    className="text-sm underline underline-offset-4"
+                    className="inline-flex h-11 w-full items-center justify-center rounded-full bg-zinc-950 px-5 text-sm font-semibold text-white transition-colors hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
                     href={gifUrl}
                     download={`meebits-${meebitId}-3s.gif`}
                   >
                     Download GIF
                   </a>
-                </div>
-                <div className="mt-3 overflow-hidden rounded-xl border border-black/10 dark:border-white/10">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={gifUrl} alt="Generated GIF preview" className="h-full w-full" />
                 </div>
               </div>
             )}
@@ -331,7 +333,7 @@ export function VrmGifGenerator() {
 
               <div className="grid grid-cols-1 gap-2">
                 <div className="text-sm font-medium">Scene</div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                   <label className="flex flex-col gap-1 text-sm text-zinc-700 dark:text-zinc-300">
                     Background
                     <select
@@ -345,6 +347,20 @@ export function VrmGifGenerator() {
                           {p.label}
                         </option>
                       ))}
+                    </select>
+                  </label>
+
+                  <label className="flex flex-col gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                    Angle
+                    <select
+                      value={cameraMode}
+                      onChange={(e) => setCameraMode(e.target.value as CameraMode)}
+                      disabled={isGenerating}
+                      className="h-10 rounded-lg border border-black/10 bg-white px-3 text-zinc-950 outline-none focus:border-zinc-400 disabled:opacity-60 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-50"
+                    >
+                      <option value="front">Front</option>
+                      <option value="frontRight">Front-right</option>
+                      <option value="frontLeft">Front-left</option>
                     </select>
                   </label>
 

@@ -87,9 +87,7 @@ export async function generateVrmGif(params: {
   scene.add(rim);
 
   const camera = new PerspectiveCamera(30, 1, 0.1, 100);
-  // NOTE: cameraMode は一旦 front 固定（UIで3-4を外す）
-  void cameraMode;
-  applyVrmCameraPose({ vrm, camera, framing, pan });
+  applyVrmCameraPose({ vrm, camera, cameraMode, framing, pan });
 
   const glCanvas = document.createElement("canvas");
   const renderer = new WebGLRenderer({

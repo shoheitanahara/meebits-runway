@@ -41,8 +41,9 @@ export const BACKGROUND_MODES = [
   "charcoal",
 ] as const;
 export type BackgroundMode = (typeof BACKGROUND_MODES)[number];
-// NOTE: 3-4(threeQuarter) は見た目の違和感報告があるため一旦外す
-export type CameraMode = "front";
+
+// Camera angle presets (front / front-right / front-left)
+export type CameraMode = "front" | "frontRight" | "frontLeft";
 
 export type CameraFraming = "fullBody" | "waistToHead" | "face";
 export type CameraPan = "left" | "center" | "right";
