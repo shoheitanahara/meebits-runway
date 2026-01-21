@@ -119,7 +119,6 @@ function drawStreetRunway(params: {
   const {
     ctx,
     width,
-    height,
     topY,
     bottomY,
     topHalf,
@@ -770,7 +769,7 @@ export function MeebitRunway() {
       document.body.appendChild(a);
       a.click();
       a.remove();
-    } catch (e) {
+    } catch {
       // 外部画像を直接描画していると「tainted canvas」で失敗する
       setErrorMessage(
         "Screenshot failed (tainted canvas). Please try again after the sprite loads via /api/sprites.",
@@ -796,7 +795,7 @@ export function MeebitRunway() {
 
     const ctx = canvas.getContext("2d");
     if (!ctx) {
-      setErrorMessage("Failed to initialize canvas.");
+      queueMicrotask(() => setErrorMessage("Failed to initialize canvas."));
       return;
     }
 
@@ -869,7 +868,7 @@ export function MeebitRunway() {
 
     // lineup変更直後などで index が範囲外になった場合に備える
     if (currentMeebitIndex >= meebitIds.length) {
-      setCurrentMeebitIndex(0);
+      queueMicrotask(() => setCurrentMeebitIndex(0));
     }
 
     const triggerFinale = () => {
@@ -1098,7 +1097,7 @@ export function MeebitRunway() {
       return;
     }
 
-    setErrorMessage(null);
+    queueMicrotask(() => setErrorMessage(null));
     stop();
 
     const tick = (timestampMs: number) => {
