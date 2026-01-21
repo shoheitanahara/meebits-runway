@@ -6,7 +6,10 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
-function safeGetBoneWorldPosition(vrm: VRM, boneName: string): Vector3 | null {
+function safeGetBoneWorldPosition(
+  vrm: VRM,
+  boneName: "head" | "hips",
+): Vector3 | null {
   try {
     const node = vrm.humanoid.getNormalizedBoneNode(boneName);
     if (!node) return null;
