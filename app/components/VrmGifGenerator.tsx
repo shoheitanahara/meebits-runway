@@ -94,7 +94,9 @@ export function VrmGifGenerator() {
       setGifUrl(url);
       setProgress(100);
     } catch {
-      setErrorMessage("GIF生成に失敗しました（VRMの読み込み/描画を確認してください）。");
+      setErrorMessage(
+        "Failed to generate the GIF. Please check VRM loading/rendering and try again.",
+      );
     } finally {
       setIsGenerating(false);
     }
@@ -106,7 +108,7 @@ export function VrmGifGenerator() {
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="text-xl font-semibold tracking-tight">
-              Meebits VRM “X用 3秒GIFジェネレーター”
+              Meebits GIF
             </h2>
             <p className="text-sm text-zinc-600 dark:text-zinc-400">
               {GIF_EXPORT_SPEC.durationSec}s / {GIF_EXPORT_SPEC.fps}fps / {GIF_EXPORT_SPEC.size}px
@@ -135,7 +137,7 @@ export function VrmGifGenerator() {
             {gifUrl && (
               <div className="rounded-2xl border border-black/10 bg-white p-3 dark:border-white/10 dark:bg-zinc-900/40">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-sm font-medium">生成結果</span>
+                  <span className="text-sm font-medium">Result</span>
                   <a
                     className="text-sm underline underline-offset-4"
                     href={gifUrl}
@@ -156,7 +158,7 @@ export function VrmGifGenerator() {
           <div className="flex flex-col gap-4 rounded-2xl border border-black/10 bg-white/70 p-4 backdrop-blur dark:border-white/10 dark:bg-zinc-900/40">
             <div className="grid grid-cols-1 gap-3">
               <label className="flex flex-col gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                Meebits VRM ID（{MIN_MEEBIT_ID}〜{MAX_MEEBIT_ID}）
+                Meebits ID ({MIN_MEEBIT_ID}–{MAX_MEEBIT_ID})
                 <input
                   type="number"
                   inputMode="numeric"
@@ -174,7 +176,7 @@ export function VrmGifGenerator() {
               </label>
 
               <div className="flex flex-col gap-2">
-                <div className="text-sm font-medium">セリフ</div>
+                <div className="text-sm font-medium">Speech</div>
                 <div className="flex flex-wrap gap-2">
                   {SPEECH_PRESETS.map((p) => (
                     <button
@@ -204,7 +206,7 @@ export function VrmGifGenerator() {
                 />
 
                 <div className="flex flex-col gap-2">
-                  <div className="text-sm font-medium">位置</div>
+                  <div className="text-sm font-medium">Position</div>
                   <div className="grid grid-cols-3 gap-2">
                     {(
                       [
@@ -239,7 +241,7 @@ export function VrmGifGenerator() {
               </div>
 
               <div className="grid grid-cols-1 gap-2">
-                <div className="text-sm font-medium">動き（モーション）</div>
+                <div className="text-sm font-medium">Motion</div>
                 <select
                   value={motionId}
                   onChange={(e) => setMotionId(e.target.value as MotionPresetId)}
@@ -255,7 +257,7 @@ export function VrmGifGenerator() {
 
                 <div className="grid grid-cols-2 gap-2">
                   <label className="flex flex-col gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                    強さ
+                    Strength
                     <select
                       value={strength}
                       onChange={(e) => setStrength(Number(e.target.value) as MotionStrength)}
@@ -269,7 +271,7 @@ export function VrmGifGenerator() {
                   </label>
 
                   <label className="flex flex-col gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                    速度
+                    Speed
                     <select
                       value={speed}
                       onChange={(e) => setSpeed(Number(e.target.value) as MotionSpeed)}
@@ -285,10 +287,10 @@ export function VrmGifGenerator() {
               </div>
 
               <div className="grid grid-cols-1 gap-2">
-                <div className="text-sm font-medium">シーン</div>
+                <div className="text-sm font-medium">Scene</div>
                 <div className="grid grid-cols-2 gap-2">
                   <label className="flex flex-col gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                    背景
+                    Background
                     <select
                       value={background}
                       onChange={(e) => setBackground(e.target.value as BackgroundMode)}
@@ -301,23 +303,23 @@ export function VrmGifGenerator() {
                   </label>
 
                   <label className="flex flex-col gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                    ズーム
+                    Zoom
                     <select
                       value={framing}
                       onChange={(e) => setFraming(e.target.value as CameraFraming)}
                       disabled={isGenerating}
                       className="h-10 rounded-lg border border-black/10 bg-white px-3 text-zinc-950 outline-none focus:border-zinc-400 disabled:opacity-60 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-50"
                     >
-                      <option value="fullBody">全体</option>
-                      <option value="waistToHead">腰〜顔</option>
-                      <option value="face">顔アップ</option>
+                      <option value="fullBody">Full body</option>
+                      <option value="waistToHead">Waist to head</option>
+                      <option value="face">Close-up</option>
                     </select>
                   </label>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 gap-2">
-                <div className="text-sm font-medium">ポジション</div>
+                <div className="text-sm font-medium">Pan</div>
                 <div className="grid grid-cols-3 gap-2">
                   {(
                     [
@@ -355,7 +357,7 @@ export function VrmGifGenerator() {
                 </button>
 
                 <div className="flex items-center justify-between gap-3 text-sm text-zinc-700 dark:text-zinc-300">
-                  <span>進捗</span>
+                  <span>Progress</span>
                   <span className="font-mono">{progress}%</span>
                 </div>
                 <div className="h-2 w-full overflow-hidden rounded-full bg-black/10 dark:bg-white/10">

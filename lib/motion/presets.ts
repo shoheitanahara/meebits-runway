@@ -10,42 +10,42 @@ export const MOTION_PRESETS: readonly MotionPreset[] = [
   {
     id: "wave",
     label: "Wave",
-    description: "右手を振って挨拶",
+    description: "Wave hello with the right hand",
   },
   {
     id: "nod",
     label: "Nod",
-    description: "うなずき＋まばたき",
+    description: "Nod with a blink",
   },
   {
     id: "bow",
     label: "Bow",
-    description: "軽いお辞儀",
+    description: "A light bow",
   },
   {
     id: "point",
     label: "Point",
-    description: "指差しっぽいポーズ",
+    description: "Pointing gesture",
   },
   {
     id: "shrug",
     label: "Shrug",
-    description: "肩すくめ＋首かしげ",
+    description: "Shrug with a head tilt",
   },
   {
     id: "spinPose",
     label: "Spin Pose",
-    description: "軽く回って最後にキメ",
+    description: "Quick spin, then a pose",
   },
   {
     id: "jump",
     label: "Jump",
-    description: "小さくジャンプ",
+    description: "Small jump",
   },
   {
     id: "idleCool",
     label: "Idle Cool",
-    description: "呼吸＋ゆっくり首振り",
+    description: "Breathing with a slow head sway",
   },
 ] as const;
 
