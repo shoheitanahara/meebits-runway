@@ -297,6 +297,43 @@ export function applyMotion(params: {
     );
 
     applySmile(vrm, 0.35 * strength);
+  } else if (presetId === "handDown") {
+    // Right hand: from raised (above) to center (chest-ish), then subtle settle.
+    // Goals:
+    // - GIF-friendly silhouette
+    // - Avoid unstable lower-body / root motion
+    // - Keep rotations moderate to reduce per-model bone axis weirdness
+    const p = smoothstep01(t / 1.25); // 0..~1 by ~1.25s
+    const settle = Math.sin(phase * 1.1) * 0.04;
+
+    const lerpEuler = (from: Euler, to: Euler, t01: number) =>
+      new Euler(
+        from.x + (to.x - from.x) * t01,
+        from.y + (to.y - from.y) * t01,
+        from.z + (to.z - from.z) * t01,
+      );
+
+    // Upper arm moves down and slightly inward.
+    const upperFrom = new Euler(-0.95, -0.35, 1.8); // raised
+    const upperTo = new Euler(-0.28, 0.35, 1.0); // lowered toward center
+    addBoneOffsetEuler(rig, BONE.rightUpperArm, lerpEuler(upperFrom, upperTo, p), strength);
+
+    // Lower arm keeps a gentle bend.
+    const lowerFrom = new Euler(0.55, 0.0, 0.08);
+    const lowerTo = new Euler(0.18, 0.12, 0.02);
+    addBoneOffsetEuler(rig, BONE.rightLowerArm, lerpEuler(lowerFrom, lowerTo, p), strength);
+
+    // Wrist: keep palm-ish facing the camera, slight settle.
+    const handFrom = new Euler(0.0, 0.55, 0.22);
+    const handTo = new Euler(0.0, 0.25, 0.10);
+    addBoneOffsetEuler(rig, BONE.rightHand, lerpEuler(handFrom, handTo, p), 1.0);
+    addBoneOffsetEuler(rig, BONE.rightHand, new Euler(0.0, 0.04 * settle, 0.05 * settle), strength);
+
+    // Tiny head/torso response to sell the gesture.
+    addBoneOffsetEuler(rig, BONE.head, new Euler(0.02, 0.0, -0.05), strength);
+    addBoneOffsetEuler(rig, BONE.chest, new Euler(0.0, 0.02 * settle, 0.0), strength);
+
+    applySmile(vrm, 0.18 * strength);
   } else if (presetId === "nod") {
     const nod = Math.sin(phase * 1.3);
     addBoneOffsetEuler(rig, BONE.head, new Euler(0.38 * nod, 0, 0), strength);

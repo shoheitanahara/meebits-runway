@@ -13,6 +13,11 @@ export const MOTION_PRESETS: readonly MotionPreset[] = [
     description: "Wave hello with the right hand",
   },
   {
+    id: "handDown",
+    label: "Hand Down",
+    description: "Lower the right hand to the center",
+  },
+  {
     id: "nod",
     label: "Nod",
     description: "Nod with a blink",
