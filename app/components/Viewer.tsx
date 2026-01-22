@@ -22,7 +22,7 @@ import {
   resetVrmMotionRig,
   type VrmMotionRig,
 } from "@/lib/motion/applyMotion";
-import type { VRM } from "@pixiv/three-vrm";
+import { VRMUtils, type VRM } from "@pixiv/three-vrm";
 import { drawSpeech } from "@/lib/text/drawSpeech";
 import { applyVrmCameraPose } from "@/lib/camera/calcCamera";
 import { getBackgroundHex } from "@/lib/background/presets";
@@ -170,11 +170,15 @@ export function Viewer(props: ViewerProps) {
 
   useEffect(() => {
     let disposed = false;
+    let prevVrm: VRM | null = null;
     queueMicrotask(() => {
       if (disposed) return;
       setIsLoading(true);
       setError(null);
-      setVrm(null);
+      setVrm((current) => {
+        prevVrm = current;
+        return null;
+      });
     });
 
     void loadVrmFromMeebitsId({ id: meebitId }).then(
@@ -192,8 +196,20 @@ export function Viewer(props: ViewerProps) {
 
     return () => {
       disposed = true;
-      // NOTE: VRM/threeのdisposeは重い&型も複雑なので最小実装では省略。
-      // 必要なら後で `VRMUtils.deepDispose` 等の導入で改善できる。
+      // Dispose previous VRM to avoid GPU/memory leaks when switching IDs repeatedly.
+      if (prevVrm) {
+        try {
+          VRMUtils.deepDispose(prevVrm.scene);
+        } catch {
+          // ignore
+        }
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (prevVrm as any).dispose?.();
+        } catch {
+          // ignore
+        }
+      }
     };
   }, [meebitId]);
 
