@@ -38,6 +38,13 @@ function normalizeSpeech(input: string): string {
   return input.replaceAll(/\r?\n/gu, " ").slice(0, 24);
 }
 
+function randomIntInclusive(min: number, max: number): number {
+  const lo = Math.ceil(min);
+  const hi = Math.floor(max);
+  if (hi < lo) return lo;
+  return lo + Math.floor(Math.random() * (hi - lo + 1));
+}
+
 export function VrmGifGenerator() {
   const [meebitIdInput, setMeebitIdInput] = useState(`${DEFAULT_MEEBIT_ID}`);
   const meebitId = useMemo(
@@ -173,16 +180,28 @@ export function VrmGifGenerator() {
             <div className="grid grid-cols-1 gap-3">
               <label className="flex flex-col gap-1 text-sm text-zinc-700 dark:text-zinc-300">
                 Meebits ID ({MIN_MEEBIT_ID}–{MAX_MEEBIT_ID})
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  min={MIN_MEEBIT_ID}
-                  max={MAX_MEEBIT_ID}
-                  value={meebitIdInput}
-                  onChange={(e) => setMeebitIdInput(e.target.value)}
-                  disabled={isGenerating}
-                  className="h-10 rounded-lg border border-black/10 bg-white px-3 text-zinc-950 outline-none focus:border-zinc-400 disabled:opacity-60 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-50"
-                />
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={MIN_MEEBIT_ID}
+                    max={MAX_MEEBIT_ID}
+                    value={meebitIdInput}
+                    onChange={(e) => setMeebitIdInput(e.target.value)}
+                    disabled={isGenerating}
+                    className="h-10 w-full rounded-lg border border-black/10 bg-white px-3 text-zinc-950 outline-none focus:border-zinc-400 disabled:opacity-60 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-50"
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setMeebitIdInput(`${randomIntInclusive(MIN_MEEBIT_ID, MAX_MEEBIT_ID)}`)
+                    }
+                    disabled={isGenerating}
+                    className="inline-flex h-10 shrink-0 items-center justify-center rounded-full border border-black/10 bg-white px-4 text-sm font-semibold text-zinc-950 transition-colors hover:bg-zinc-50 disabled:opacity-60 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-50 dark:hover:bg-zinc-900"
+                  >
+                    Random
+                  </button>
+                </div>
                 <span className="text-xs text-zinc-500 dark:text-zinc-400">
                   VRM URL:{" "}
                   <span className="font-mono">{`https://files.meebits.app/vrm/${meebitId}.vrm`}</span>
