@@ -451,6 +451,69 @@ export function applyMotion(params: {
       strength,
     );
     addBoneOffsetEuler(rig, BONE.chest, new Euler(-0.12 * landing, 0, 0), strength);
+  } else if (presetId === "idleBounce") {
+    // Full-body bounce: stable + GIF-friendly silhouette.
+    // Keep angles small to avoid clothing deformation across models.
+    const s = strength;
+    const bounce = Math.sin(phase * 1.2); // slower
+    const up = Math.max(0, bounce);
+    const down = Math.max(0, -bounce);
+    const y = 0.028 * up * up - 0.010 * down * down;
+    setRootOffset(rig, { yOffset: y, strength: s });
+
+    addBoneOffsetEuler(rig, BONE.spine, new Euler(-0.03 * down, 0, 0), s);
+    addBoneOffsetEuler(rig, BONE.chest, new Euler(-0.02 * down, 0, 0), s);
+    addBoneOffsetEuler(rig, BONE.head, new Euler(0.02 * down, 0, 0), s);
+
+    const blink = pulse01(((t % 1.6) + 1.6) % 1.6, 0.08, 0.06);
+    applyBlink(vrm, blink);
+    applySmile(vrm, 0.10 * s);
+  } else if (presetId === "idleGroove") {
+    // Full-body groove: gentle side sway + micro yaw.
+    const s = strength;
+    const sway = Math.sin(phase * 0.85);
+    const sway2 = Math.sin(phase * 1.7);
+    const yaw = 0.10 * sway; // small
+    const y = 0.008 * (0.5 + 0.5 * sway2);
+    setRootOffset(rig, { yawRad: yaw, yOffset: y, strength: s });
+
+    addBoneOffsetEuler(rig, BONE.chest, new Euler(0.0, 0.06 * sway, 0.0), s);
+    addBoneOffsetEuler(rig, BONE.spine, new Euler(0.0, 0.04 * sway, 0.0), s);
+    addBoneOffsetEuler(rig, BONE.head, new Euler(0.0, 0.10 * sway, 0.0), s);
+
+    const blink = pulse01(((t % 1.45) + 1.45) % 1.45, 0.10, 0.06);
+    applyBlink(vrm, blink);
+    applySmile(vrm, 0.12 * s);
+  } else if (presetId === "idleLean") {
+    // Lean + sway: read well even at small sizes.
+    const s = strength;
+    const sway = Math.sin(phase * 0.75);
+    const lean = 0.16 * sway;
+    const y = 0.010 * (0.5 + 0.5 * Math.sin(phase * 1.5));
+    setRootOffset(rig, { yOffset: y, strength: s });
+
+    // Z tilt sells the lean; keep it on chest/head (avoid hips for stability).
+    addBoneOffsetEuler(rig, BONE.chest, new Euler(0.0, 0.0, 0.10 * sway), s);
+    addBoneOffsetEuler(rig, BONE.head, new Euler(0.0, 0.0, lean), s);
+    addBoneOffsetEuler(rig, BONE.neck, new Euler(0.0, 0.0, 0.06 * sway), s);
+
+    const blink = pulse01(((t % 1.55) + 1.55) % 1.55, 0.10, 0.06);
+    applyBlink(vrm, blink);
+    applySmile(vrm, 0.10 * s);
+  } else if (presetId === "idleTurn") {
+    // Subtle turn in place (loop): small yaw oscillation.
+    const s = strength;
+    const sway = Math.sin(phase * 0.6);
+    const yaw = 0.14 * sway;
+    const y = 0.006 * (0.5 + 0.5 * Math.sin(phase * 1.2));
+    setRootOffset(rig, { yawRad: yaw, yOffset: y, strength: s });
+
+    addBoneOffsetEuler(rig, BONE.chest, new Euler(0.0, 0.04 * sway, 0.0), s);
+    addBoneOffsetEuler(rig, BONE.head, new Euler(0.0, 0.08 * sway, 0.0), s);
+
+    const blink = pulse01(((t % 1.7) + 1.7) % 1.7, 0.10, 0.06);
+    applyBlink(vrm, blink);
+    applySmile(vrm, 0.10 * s);
   } else if (presetId === "idleCool") {
     const breathe = Math.sin(phase);
     const headYaw = Math.sin(phase * 0.5);
