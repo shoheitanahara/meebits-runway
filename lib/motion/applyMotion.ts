@@ -466,26 +466,31 @@ export function applyMotion(params: {
     addBoneOffsetEuler(rig, BONE.spine, new Euler(0.0, 0.04 * sway, 0.0), s);
     addBoneOffsetEuler(rig, BONE.head, new Euler(0.0, 0.08 * sway, 0.0), s);
 
-    // Right arm: "hand up" pose (banzai-ish). Keep rotations moderate.
-    addBoneOffsetEuler(
-      rig,
-      BONE.rightUpperArm,
-      new Euler(-0.10, 0.20, 2.00),
-      1.0,
-    );
-    addBoneOffsetEuler(
-      rig,
-      BONE.rightLowerArm,
-      new Euler(0.55, 0.08, 0.05),
-      1.0,
-    );
-    // Wrist: neutral-ish; tiny settle only.
-    addBoneOffsetEuler(
-      rig,
-      BONE.rightHand,
-      new Euler(0.0, 0.18, 0.10),
-      1.0,
-    );
+    // Right arm: banzai-like up/down loop.
+    // NOTE: interpolate between two safe poses to avoid per-model axis weirdness.
+    const lift01 = 0.5 + 0.5 * Math.sin(phase * 1.1); // 0..1..0
+    const lift = smoothstep01(lift01);
+    const lerpEuler = (from: Euler, to: Euler, t01: number) =>
+      new Euler(
+        from.x + (to.x - from.x) * t01,
+        from.y + (to.y - from.y) * t01,
+        from.z + (to.z - from.z) * t01,
+      );
+
+    // Upper arm: fully up -> mid down (still raised). (Keep the user's Z-axis style.)
+    const upperUp = new Euler(-0.10, 0.20, 2.00);
+    const upperDown = new Euler(-0.08, 0.18, 1.35);
+    addBoneOffsetEuler(rig, BONE.rightUpperArm, lerpEuler(upperDown, upperUp, lift), 1.0);
+
+    // Lower arm: keep bend, slightly relax when lowered.
+    const lowerUp = new Euler(0.55, 0.08, 0.05);
+    const lowerDown = new Euler(0.45, 0.06, 0.04);
+    addBoneOffsetEuler(rig, BONE.rightLowerArm, lerpEuler(lowerDown, lowerUp, lift), 1.0);
+
+    // Wrist: mostly neutral; tiny follow.
+    const handUp = new Euler(0.0, 0.18, 0.10);
+    const handDown = new Euler(0.0, 0.14, 0.08);
+    addBoneOffsetEuler(rig, BONE.rightHand, lerpEuler(handDown, handUp, lift), 1.0);
     addBoneOffsetEuler(
       rig,
       BONE.rightHand,
