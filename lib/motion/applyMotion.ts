@@ -315,7 +315,7 @@ export function applyMotion(params: {
 
     // Upper arm moves down and slightly inward.
     const upperFrom = new Euler(-0.95, -0.35, 1.8); // raised
-    const upperTo = new Euler(-0.28, 0.35, 1.0); // lowered toward center
+    const upperTo = new Euler(-0.28, 0.35, 0.0); // lowered toward center
     addBoneOffsetEuler(rig, BONE.rightUpperArm, lerpEuler(upperFrom, upperTo, p), strength);
 
     // Lower arm keeps a gentle bend.
