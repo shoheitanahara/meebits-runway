@@ -1,6 +1,7 @@
 export type MotionPresetId =
   | "wave"
   | "handDown"
+  | "idleHandUp"
   | "idleBounce"
   | "idleGroove"
   | "idleLean"

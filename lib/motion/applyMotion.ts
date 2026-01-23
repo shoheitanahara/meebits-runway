@@ -451,6 +451,51 @@ export function applyMotion(params: {
       strength,
     );
     addBoneOffsetEuler(rig, BONE.chest, new Euler(-0.12 * landing, 0, 0), strength);
+  } else if (presetId === "idleHandUp") {
+    // One-hand up (pose) + full-body idle sway.
+    // Keep the arm mostly "held" (minimal wrist motion) to reduce per-model instability.
+    const s = strength;
+    const sway = Math.sin(phase * 0.85);
+    const sway2 = Math.sin(phase * 1.7);
+    const yaw = 0.10 * sway;
+    const y = 0.010 * (0.5 + 0.5 * sway2);
+    setRootOffset(rig, { yawRad: yaw, yOffset: y, strength: s });
+
+    // Body follows the sway a bit.
+    addBoneOffsetEuler(rig, BONE.chest, new Euler(0.0, 0.06 * sway, 0.0), s);
+    addBoneOffsetEuler(rig, BONE.spine, new Euler(0.0, 0.04 * sway, 0.0), s);
+    addBoneOffsetEuler(rig, BONE.head, new Euler(0.0, 0.08 * sway, 0.0), s);
+
+    // Right arm: "hand up" pose (banzai-ish). Keep rotations moderate.
+    addBoneOffsetEuler(
+      rig,
+      BONE.rightUpperArm,
+      new Euler(-0.10, 0.20, 2.00),
+      1.0,
+    );
+    addBoneOffsetEuler(
+      rig,
+      BONE.rightLowerArm,
+      new Euler(0.55, 0.08, 0.05),
+      1.0,
+    );
+    // Wrist: neutral-ish; tiny settle only.
+    addBoneOffsetEuler(
+      rig,
+      BONE.rightHand,
+      new Euler(0.0, 0.18, 0.10),
+      1.0,
+    );
+    addBoneOffsetEuler(
+      rig,
+      BONE.rightHand,
+      new Euler(0.0, 0.02 * sway, 0.02 * sway),
+      s,
+    );
+
+    const blink = pulse01(((t % 1.55) + 1.55) % 1.55, 0.10, 0.06);
+    applyBlink(vrm, blink);
+    applySmile(vrm, 0.12 * s);
   } else if (presetId === "idleBounce") {
     // Full-body bounce: stable + GIF-friendly silhouette.
     // Keep angles small to avoid clothing deformation across models.

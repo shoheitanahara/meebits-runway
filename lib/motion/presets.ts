@@ -18,6 +18,11 @@ export const MOTION_PRESETS: readonly MotionPreset[] = [
     description: "Lower the right hand to the center",
   },
   {
+    id: "idleHandUp",
+    label: "Idle Hand Up",
+    description: "One-hand up + idle sway (loop)",
+  },
+  {
     id: "idleBounce",
     label: "Idle Bounce",
     description: "Full-body bounce (loop)",
