@@ -116,8 +116,12 @@ function SceneContent(props: {
     if (canvas) {
       const dpr = Math.min(2, Math.max(1, window.devicePixelRatio ?? 1));
       const rect = canvas.getBoundingClientRect();
-      const nextW = Math.max(1, Math.floor(rect.width * dpr));
-      const nextH = Math.max(1, Math.floor(rect.height * dpr));
+      // Canvas は backing store を DPR に合わせつつ、描画座標系は CSS px に揃える。
+      // こうすると Preview（可変サイズ）と Result（固定 512px）で、吹き出しの見た目スケールが一致しやすい。
+      const cssW = Math.max(1, rect.width);
+      const cssH = Math.max(1, rect.height);
+      const nextW = Math.max(1, Math.floor(cssW * dpr));
+      const nextH = Math.max(1, Math.floor(cssH * dpr));
       if (canvas.width !== nextW || canvas.height !== nextH) {
         canvas.width = nextW;
         canvas.height = nextH;
@@ -125,13 +129,17 @@ function SceneContent(props: {
 
       const ctx = canvas.getContext("2d");
       if (ctx) {
+        // まず backing store を基準に完全消去
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // 以降の描画は CSS px 座標系（DPR スケール）で行う
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         if (speechText.trim().length > 0) {
           const style = getSpeechStylePreset(speechStyleId);
           drawSpeech({
             ctx,
-            width: canvas.width,
-            height: canvas.height,
+            width: cssW,
+            height: cssH,
             t,
             text: speechText,
             position: speechPosition,
