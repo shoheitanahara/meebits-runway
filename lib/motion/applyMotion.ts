@@ -283,7 +283,7 @@ export function applyMotion(params: {
     addBoneOffsetEuler(
       rig,
       BONE.rightHand,
-      new Euler(1.0 * raise, 0.2, -1.0),
+      new Euler(0.5 * raise, 0.2, -1.0),
       1.0,
     );
 
@@ -305,7 +305,7 @@ export function applyMotion(params: {
     addBoneOffsetEuler(
       rig,
       BONE.leftHand,
-      new Euler(1.0 * raise, -0.2, 1.0),
+      new Euler(0.5 * raise, -0.2, 1.0),
       1.0,
     );
 
@@ -350,7 +350,7 @@ export function applyMotion(params: {
     addBoneOffsetEuler(
       rig,
       BONE.rightHand,
-      new Euler(1.0 * raise, 0.2, -1.0),
+      new Euler(0.5 * raise, 0.2, -1.0),
       1.0,
     );
 
