@@ -10,6 +10,7 @@ export type MotionPresetId =
   | "bow"
   | "point"
   | "shrug"
+  | "turntableIPose"
   | "spinPose"
   | "jump"
   | "idleCool";

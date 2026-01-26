@@ -205,6 +205,27 @@ function applyRelaxedBasePose(rig: VrmMotionRig, presetId: MotionPresetId): void
   // 必要なら各モーション側で最小限の調整を入れる。
 }
 
+function applyStrictIPose(rig: VrmMotionRig): void {
+  // 「完全な I ポーズ」固定を狙う。
+  // NOTE:
+  // - モデル差（骨軸/初期姿勢）により完全一致は難しいが、「腕を真下に落とす」ことを最優先にする
+  // - `resetVrmMotionRig()` の直後に呼ぶ（積み上げを防ぐ）
+  const s = 1.0;
+
+  // 上腕：Tポーズ（水平）から真下（Iポーズ）へ
+  // - 主にZ回転で落とす（軸差に比較的強い）
+  addBoneOffsetEuler(rig, BONE.leftUpperArm, new Euler(0.08, 0.0, 1.52), s);
+  addBoneOffsetEuler(rig, BONE.rightUpperArm, new Euler(0.08, 0.0, -1.52), s);
+
+  // 前腕：まっすぐ（曲げない）
+  addBoneOffsetEuler(rig, BONE.leftLowerArm, new Euler(0.0, 0.0, 0.0), s);
+  addBoneOffsetEuler(rig, BONE.rightLowerArm, new Euler(0.0, 0.0, 0.0), s);
+
+  // 手首：ニュートラル（ひねらない）
+  addBoneOffsetEuler(rig, BONE.leftHand, new Euler(0.0, 0.0, 0.0), s);
+  addBoneOffsetEuler(rig, BONE.rightHand, new Euler(0.0, 0.0, 0.0), s);
+}
+
 export function applyMotion(params: {
   vrm: VRM;
   rig: VrmMotionRig;
@@ -222,10 +243,23 @@ export function applyMotion(params: {
   applyBlink(vrm, 0);
   applySmile(vrm, 0);
 
-  // ベース姿勢（Tポーズ回避）
-  applyRelaxedBasePose(rig, presetId);
+  if (presetId === "turntableIPose") {
+    // Iポーズ固定 + ターンテーブル回転（3秒ループ）
+    // NOTE:
+    // - Strength を回転に掛けるとループ終端で姿勢が一致せず“継ぎ目”が出るため、回転には使わない
+    // - つなぎ目は気にしない前提で、Speed は「3秒内の回転数（連続値）」にマップする
+    //   - 0.8: 0.5回転 / 3秒
+    //   - 1.0: 1.0回転 / 3秒
+    //   - 1.2: 1.5回転 / 3秒
+    applyStrictIPose(rig);
+    const rotationsPerLoop = 2.5 * params.speed - 1.5;
+    const yaw = -TAU * (t / 3) * rotationsPerLoop;
+    setRootOffset(rig, { yawRad: yaw, yOffset: 0, strength: 1.0 });
+  } else {
+    // ベース姿勢（Tポーズ回避）
+    applyRelaxedBasePose(rig, presetId);
 
-  if (presetId === "wave") {
+    if (presetId === "wave") {
     // 片腕を上げて、腕全体（肩＋肘）を横に振る
     const swing = Math.sin(phase * 2.2);
     const swingFast = Math.sin(phase * 4.4);
@@ -580,6 +614,7 @@ export function applyMotion(params: {
     const blink = pulse01(((t % 1.5) + 1.5) % 1.5, 0.08, 0.06);
     applyBlink(vrm, blink);
     applySmile(vrm, 0.12 * strength);
+  }
   }
 
   // 表情の反映

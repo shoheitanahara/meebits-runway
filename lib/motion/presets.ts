@@ -63,6 +63,11 @@ export const MOTION_PRESETS: readonly MotionPreset[] = [
     description: "Shrug with a head tilt",
   },
   {
+    id: "turntableIPose",
+    label: "Turntable (I-Pose)",
+    description: "Lock into a strict I-pose and rotate like a turntable (loop)",
+  },
+  {
     id: "spinPose",
     label: "Spin Pose",
     description: "Quick spin, then a pose",
