@@ -255,6 +255,120 @@ export function applyMotion(params: {
     const rotationsPerLoop = 2.5 * params.speed - 1.5;
     const yaw = -TAU * (t / 3) * rotationsPerLoop;
     setRootOffset(rig, { yawRad: yaw, yOffset: 0, strength: 1.0 });
+  } else if (presetId === "gutsPose") {
+    // 両手ガッツポーズ：完全Iポーズからスタート、両腕を曲げて「よっしゃ！」
+    // 3秒ループで2回上げ下げ
+    applyStrictIPose(rig);
+
+    // cos波で 0→1→0→1→0 を2回（3秒で2サイクル）
+    const raise = 0.5 - 0.5 * Math.cos(TAU * 2 * (t / 3));
+    const bounce = Math.sin(phase * 2.0) * 0.015;
+    const s = strength;
+
+    // 右腕：上腕を前・内側に寄せる
+    addBoneOffsetEuler(
+      rig,
+      BONE.rightUpperArm,
+      new Euler(0.2 * raise, 0.6 * raise, 0),
+      1.0,
+    );
+    // 右前腕：肘を曲げる
+    addBoneOffsetEuler(
+      rig,
+      BONE.rightLowerArm,
+      new Euler(-0.1, 2.0 * raise, -0.2 * raise),
+      1.0,
+    );
+    // 右手首
+    addBoneOffsetEuler(
+      rig,
+      BONE.rightHand,
+      new Euler(1.0 * raise, 0.2, -1.0),
+      1.0,
+    );
+
+    // 左腕：右腕のミラー（Y, Z の符号反転）
+    addBoneOffsetEuler(
+      rig,
+      BONE.leftUpperArm,
+      new Euler(0.2 * raise, -0.6 * raise, 0),
+      1.0,
+    );
+    // 左前腕：肘を曲げる（ミラー）
+    addBoneOffsetEuler(
+      rig,
+      BONE.leftLowerArm,
+      new Euler(-0.1, -2.0 * raise, 0.2 * raise),
+      1.0,
+    );
+    // 左手首
+    addBoneOffsetEuler(
+      rig,
+      BONE.leftHand,
+      new Euler(1.0 * raise, -0.2, 1.0),
+      1.0,
+    );
+
+    // 上半身を前後させて躍動感を出す（raise=1で前傾、raise=0で少し後傾）
+    const lean = raise - 0.5; // -0.5 〜 +0.5
+    addBoneOffsetEuler(rig, BONE.chest, new Euler(-0.18 * lean, 0.0, 0.0), s);
+    addBoneOffsetEuler(rig, BONE.spine, new Euler(-0.10 * lean, 0.0, 0.0), s);
+
+    // 軽い上下動で「やった！」の躍動感
+    setRootOffset(rig, { yOffset: 0.015 * raise + bounce * raise, strength: s });
+
+    // 頭は体の動きに少し追従
+    addBoneOffsetEuler(rig, BONE.head, new Euler(0.08 * lean, 0.0, 0.0), s);
+
+    // 笑顔
+    applySmile(vrm, 0.4 * raise * s);
+  } else if (presetId === "gutsPoseRight") {
+    // 右手のみガッツポーズ：完全Iポーズからスタート、右腕だけ曲げて「よっしゃ！」
+    // 3秒ループで2回上げ下げ
+    applyStrictIPose(rig);
+
+    // cos波で 0→1→0→1→0 を2回（3秒で2サイクル）
+    const raise = 0.5 - 0.5 * Math.cos(TAU * 2 * (t / 3));
+    const bounce = Math.sin(phase * 2.0) * 0.015;
+    const s = strength;
+
+    // 右腕：上腕を前・内側に寄せる
+    addBoneOffsetEuler(
+      rig,
+      BONE.rightUpperArm,
+      new Euler(0.2 * raise, 0.6 * raise, 0),
+      1.0,
+    );
+    // 右前腕：肘を曲げる
+    addBoneOffsetEuler(
+      rig,
+      BONE.rightLowerArm,
+      new Euler(-0.1, 2.0 * raise, -0.2 * raise),
+      1.0,
+    );
+    // 右手首
+    addBoneOffsetEuler(
+      rig,
+      BONE.rightHand,
+      new Euler(1.0 * raise, 0.2, -1.0),
+      1.0,
+    );
+
+    // 左腕はIポーズのまま（applyStrictIPoseで設定済み）
+
+    // 上半身を前後させて躍動感を出す（raise=1で前傾、raise=0で少し後傾）
+    const lean = raise - 0.5; // -0.5 〜 +0.5
+    addBoneOffsetEuler(rig, BONE.chest, new Euler(-0.18 * lean, 0.0, 0.0), s);
+    addBoneOffsetEuler(rig, BONE.spine, new Euler(-0.10 * lean, 0.0, 0.0), s);
+
+    // 軽い上下動で「やった！」の躍動感
+    setRootOffset(rig, { yOffset: 0.015 * raise + bounce * raise, strength: s });
+
+    // 頭は体の動きに少し追従
+    addBoneOffsetEuler(rig, BONE.head, new Euler(0.08 * lean, 0.0, 0.0), s);
+
+    // 笑顔
+    applySmile(vrm, 0.4 * raise * s);
   } else {
     // ベース姿勢（Tポーズ回避）
     applyRelaxedBasePose(rig, presetId);

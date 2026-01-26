@@ -10,6 +10,8 @@ export type MotionPresetId =
   | "bow"
   | "point"
   | "shrug"
+  | "gutsPose"
+  | "gutsPoseRight"
   | "turntableIPose"
   | "spinPose"
   | "jump"

@@ -63,6 +63,16 @@ export const MOTION_PRESETS: readonly MotionPreset[] = [
     description: "Shrug with a head tilt",
   },
   {
+    id: "gutsPose",
+    label: "Guts Pose (Both)",
+    description: "Victory fist pump with both hands",
+  },
+  {
+    id: "gutsPoseRight",
+    label: "Guts Pose (Right)",
+    description: "Victory fist pump with right hand only",
+  },
+  {
     id: "turntableIPose",
     label: "Turntable (I-Pose)",
     description: "Lock into a strict I-pose and rotate like a turntable (loop)",
