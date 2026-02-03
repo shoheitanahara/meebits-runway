@@ -359,6 +359,10 @@ export function VrmGifGenerator() {
                             <span className="font-mono">Keyframe Reduction</span>: none
                           </li>
                         </ul>
+                        <div className="mt-2">
+                          Note: This feature is experimental. During testing, we recommend using
+                          animations without intense movements.
+                        </div>
                       </div>
                     </div>
                     <label className="flex flex-col gap-1 text-sm text-zinc-700 dark:text-zinc-300">

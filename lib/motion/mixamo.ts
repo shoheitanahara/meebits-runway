@@ -54,6 +54,8 @@ export function applyMixamoBasePose(rig: VrmMotionRig): void {
   // 強すぎると腕が内側に入りすぎる個体があるため、ベース補正は控えめにする。
   // NOTE: Mixamo差分で最終形は上書きされるので、ここは"初期姿勢の癖取り"が目的。
   // ただし強すぎると「腕を上げる」等のMixamo差分と相殺してしまうので、バランスを取る。
+  // NOTE: 腕を上げる系（Waveなど）で「上がらない」原因になりやすいので、
+  // 脇を閉めたい場合でも“上腕を落としすぎない”強さに留める。
   const s = 0.75;
 
   // 肩はほんの少しだけ内側へ（肘が外に逃げるのを抑える）
@@ -64,8 +66,9 @@ export function applyMixamoBasePose(rig: VrmMotionRig): void {
   // NOTE: Meebitsは骨軸差で「落とす(Z)」が内巻きに見えることがあるため、
   // 少しだけ外向き（Y）成分を足してバランスを取る。
   // NOTE: 強すぎるとMixamoの「腕を上げる」動きと相殺してしまうので、かなり控えめにする。
-  addBoneOffsetEuler(rig, BONE.leftUpperArm, new Euler(0.03, 0.08, 0.55), s);
-  addBoneOffsetEuler(rig, BONE.rightUpperArm, new Euler(0.03, -0.08, -0.55), s);
+  // 「脇の開き」は肩側で制御し、上腕の“落とし”は弱めにする（腕上げを邪魔しにくくする）。
+  addBoneOffsetEuler(rig, BONE.leftUpperArm, new Euler(0.02, 0.07, 0.38), s);
+  addBoneOffsetEuler(rig, BONE.rightUpperArm, new Euler(0.02, -0.07, -0.38), s);
 
   // 前腕は軽く絞るだけ（内側へ巻き込みを抑える）
   addBoneOffsetEuler(rig, BONE.leftLowerArm, new Euler(0.0, 0.0, 0.05), s);
@@ -94,7 +97,7 @@ function getBoneGain(name: BoneName): number {
     case BONE.leftShoulder:
     case BONE.rightShoulder:
       // 肩の上げを出すためgainを高めに
-      return 1.00;
+      return 1.20;
     case BONE.leftUpperArm:
     case BONE.rightUpperArm:
       return 1.00;
@@ -138,8 +141,8 @@ function getBoneMaxAngleRad(name: BoneName): number {
       return 0.65;
     case BONE.leftShoulder:
     case BONE.rightShoulder:
-      // 肩の上げを出すため角度を広げる
-      return 1.20;
+      // 肩主導で腕を上げられるよう、角度クランプは広めにする
+      return 1.55;
     case BONE.leftUpperArm:
     case BONE.rightUpperArm:
       return 1.80;
@@ -188,8 +191,8 @@ function getBoneAxisScale(
       return { x: 0.85, y: 0.85, z: 0.85 };
     case BONE.leftShoulder:
     case BONE.rightShoulder:
-      // 肩の上げ(X)を優先、Y/Zは少し抑える
-      return { x: 1.00, y: 0.85, z: 0.85 };
+      // 肩の上げ(X)は残しつつ、脇の開きに直結しやすいY/Zを強めに抑える
+      return { x: 1.15, y: 0.55, z: 0.55 };
     case BONE.leftUpperArm:
     case BONE.rightUpperArm:
       // 腕が体を横切りすぎ（クロス）になりやすいので、横方向成分を少し抑える
@@ -373,6 +376,19 @@ const tmpQ1 = new Quaternion();
 const tmpQ2 = new Quaternion();
 const tmpE0 = new Euler();
 
+function applyEulerBoneCorrections(boneName: BoneName, euler: Euler): void {
+  // NOTE:
+  // Mixamo→VRM は骨軸が一致しないため、特定ボーンだけ「上げ下げ（pitch）方向」が逆に見えることがある。
+  // また肩はY/Z成分が脇の開きに直結しやすいので、ここで軽く抑えて破綻を防ぐ。
+  if (boneName === BONE.leftShoulder || boneName === BONE.rightShoulder) {
+    // 肩の上げ下げが逆に出るケースの補正
+    euler.x = -euler.x;
+    // 脇の開き（外転/内転っぽい成分）を軽く制限
+    euler.y = clamp(euler.y, -0.55, 0.55);
+    euler.z = clamp(euler.z, -0.55, 0.55);
+  }
+}
+
 function wrap01(value: number): number {
   // JSの % は負値を返す可能性があるので 0..1 に正規化
   const v = value % 1;
@@ -420,6 +436,7 @@ export function applyMixamoMotionToRig(params: {
     // 軸ごとに抑制（脚クロス/上体反り対策）
     // NOTE: 厳密な軸一致は難しいため、暴れ抑制として"ほどほどに"効かせる。
     tmpE0.setFromQuaternion(delta, "YXZ");
+    applyEulerBoneCorrections(boneName, tmpE0);
     clampEulerForArmCrossing(boneName, tmpE0);
     const axis = getBoneAxisScale(boneName);
     tmpE0.set(tmpE0.x * axis.x, tmpE0.y * axis.y, tmpE0.z * axis.z, "YXZ");
