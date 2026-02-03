@@ -8,6 +8,11 @@ export type MotionPreset = Readonly<{
 
 export const MOTION_PRESETS: readonly MotionPreset[] = [
   {
+    id: "mixamo",
+    label: "Mixamo (FBX Upload)",
+    description: "Play a user-uploaded Mixamo animation (retargeted at runtime)",
+  },
+  {
     id: "wave",
     label: "Wave",
     description: "Wave hello with the right hand",

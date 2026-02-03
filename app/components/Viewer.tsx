@@ -27,10 +27,18 @@ import { drawSpeech } from "@/lib/text/drawSpeech";
 import { applyVrmCameraPose } from "@/lib/camera/calcCamera";
 import { getBackgroundHex } from "@/lib/background/presets";
 import { getSpeechStylePreset } from "@/lib/text/speechStylePresets";
+import {
+  applyMixamoMotionToRig,
+  applyMixamoBasePose,
+  createMixamoMotionSource,
+  disposeMixamoMotionSource,
+  type MixamoMotionSource,
+} from "@/lib/motion/mixamo";
 
 type ViewerProps = Readonly<{
   meebitId: number;
   motionId: MotionPresetId;
+  mixamoFbx?: ArrayBuffer | null;
   strength: MotionStrength;
   speed: MotionSpeed;
   background: BackgroundMode;
@@ -46,6 +54,7 @@ type ViewerProps = Readonly<{
 function SceneContent(props: {
   vrm: VRM;
   motionId: MotionPresetId;
+  mixamoFbx?: ArrayBuffer | null;
   strength: MotionStrength;
   speed: MotionSpeed;
   cameraMode: CameraMode;
@@ -60,6 +69,7 @@ function SceneContent(props: {
   const {
     vrm,
     motionId,
+    mixamoFbx,
     strength,
     speed,
     cameraMode,
@@ -76,11 +86,47 @@ function SceneContent(props: {
   const perspectiveCamera = camera as PerspectiveCamera;
   const rigRef = useRef<VrmMotionRig | null>(null);
   const lookAtRef = useRef<Vector3>(new Vector3(0, 1, 0));
+  const mixamoRef = useRef<MixamoMotionSource | null>(null);
 
   useEffect(() => {
     // リグはVRM読み込み時に1回だけ作る（ズーム変更で基準姿勢がズレるのを防ぐ）
     rigRef.current = createVrmMotionRig(vrm);
   }, [vrm]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    // Mixamo以外なら破棄して終了
+    if (motionId !== "mixamo" || !mixamoFbx) {
+      disposeMixamoMotionSource(mixamoRef.current);
+      mixamoRef.current = null;
+      return;
+    }
+
+    // 既存を破棄して差し替え
+    disposeMixamoMotionSource(mixamoRef.current);
+    mixamoRef.current = null;
+
+    void createMixamoMotionSource(mixamoFbx).then(
+      (src) => {
+        if (cancelled) {
+          disposeMixamoMotionSource(src);
+          return;
+        }
+        mixamoRef.current = src;
+      },
+      () => {
+        // 失敗してもアプリは落とさない（静止表示のままにする）
+        mixamoRef.current = null;
+      },
+    );
+
+    return () => {
+      cancelled = true;
+      disposeMixamoMotionSource(mixamoRef.current);
+      mixamoRef.current = null;
+    };
+  }, [motionId, mixamoFbx]);
 
   useEffect(() => {
     // カメラは共通ロジックで計算（プレビュー/書き出しで一致させる）
@@ -98,9 +144,23 @@ function SceneContent(props: {
     const rig = rigRef.current;
     if (!rig) return;
 
-    const t = clock.getElapsedTime() % 3;
+    const proceduralT = clock.getElapsedTime() % 3;
+    // Mixamoは「3秒に収めるための強制倍速」はしない。クリップ長で自然にループさせる。
+    const mixamoT = clock.getElapsedTime();
     resetVrmMotionRig(rig);
-    applyMotion({ vrm, rig, t, presetId: motionId, strength, speed });
+    if (motionId === "mixamo" && mixamoRef.current) {
+      // Mixamo前に“脇を閉じる”ベース姿勢を適用（Meebitsの見た目が安定）
+      applyMixamoBasePose(rig);
+      applyMixamoMotionToRig({
+        source: mixamoRef.current,
+        rig,
+        t: mixamoT,
+        strength,
+        speed,
+      });
+    } else {
+      applyMotion({ vrm, rig, t: proceduralT, presetId: motionId, strength, speed });
+    }
 
     // three-vrmの更新（表情/物理等）
     try {
@@ -140,7 +200,7 @@ function SceneContent(props: {
             ctx,
             width: cssW,
             height: cssH,
-            t,
+            t: motionId === "mixamo" ? mixamoT % 3 : proceduralT,
             text: speechText,
             position: speechPosition,
             renderMode: speechRenderMode,
@@ -241,6 +301,7 @@ export function Viewer(props: ViewerProps) {
           <SceneContent
             vrm={vrm}
             motionId={motionId}
+            mixamoFbx={props.mixamoFbx ?? null}
             strength={strength}
             speed={speed}
             cameraMode={cameraMode}

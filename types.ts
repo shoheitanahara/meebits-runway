@@ -15,7 +15,8 @@ export type MotionPresetId =
   | "turntableIPose"
   | "spinPose"
   | "jump"
-  | "idleCool";
+  | "idleCool"
+  | "mixamo";
 
 export type MotionStrength = 0.5 | 1.0 | 1.5;
 export type MotionSpeed = 0.8 | 1.0 | 1.2;

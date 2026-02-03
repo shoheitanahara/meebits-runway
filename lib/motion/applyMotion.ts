@@ -7,21 +7,32 @@ const TAU = Math.PI * 2;
 // NOTE:
 // `@pixiv/three-vrm` v3系では `VRMHumanBoneName` が「型（文字列ユニオン）」として提供されるため、
 // 実体（enum/namespace）に依存せず、利用するボーン名を文字列で定義する。
-const BONE = {
+export const BONE = {
   hips: "hips",
   spine: "spine",
+  upperChest: "upperChest",
   chest: "chest",
   neck: "neck",
   head: "head",
+  leftShoulder: "leftShoulder",
   leftUpperArm: "leftUpperArm",
   leftLowerArm: "leftLowerArm",
   leftHand: "leftHand",
+  rightShoulder: "rightShoulder",
   rightUpperArm: "rightUpperArm",
   rightLowerArm: "rightLowerArm",
   rightHand: "rightHand",
+  leftUpperLeg: "leftUpperLeg",
+  leftLowerLeg: "leftLowerLeg",
+  leftFoot: "leftFoot",
+  leftToes: "leftToes",
+  rightUpperLeg: "rightUpperLeg",
+  rightLowerLeg: "rightLowerLeg",
+  rightFoot: "rightFoot",
+  rightToes: "rightToes",
 } as const;
 
-type BoneName = (typeof BONE)[keyof typeof BONE];
+export type BoneName = (typeof BONE)[keyof typeof BONE];
 
 type BoneState = Readonly<{
   node: Object3D;
@@ -74,15 +85,26 @@ export function createVrmMotionRig(vrm: VRM): VrmMotionRig {
   const boneNames: readonly BoneName[] = [
     BONE.hips,
     BONE.spine,
+    BONE.upperChest,
     BONE.chest,
     BONE.neck,
     BONE.head,
+    BONE.leftShoulder,
     BONE.leftUpperArm,
     BONE.leftLowerArm,
     BONE.leftHand,
+    BONE.rightShoulder,
     BONE.rightUpperArm,
     BONE.rightLowerArm,
     BONE.rightHand,
+    BONE.leftUpperLeg,
+    BONE.leftLowerLeg,
+    BONE.leftFoot,
+    BONE.leftToes,
+    BONE.rightUpperLeg,
+    BONE.rightLowerLeg,
+    BONE.rightFoot,
+    BONE.rightToes,
   ];
 
   for (const name of boneNames) {

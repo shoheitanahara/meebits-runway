@@ -16,6 +16,13 @@ import {
   createVrmMotionRig,
   resetVrmMotionRig,
 } from "@/lib/motion/applyMotion";
+import {
+  applyMixamoMotionToRig,
+  applyMixamoBasePose,
+  createMixamoMotionSource,
+  disposeMixamoMotionSource,
+  type MixamoMotionSource,
+} from "@/lib/motion/mixamo";
 import { drawSpeech } from "@/lib/text/drawSpeech";
 import { GIFEncoder, applyPalette, quantize } from "gifenc";
 import {
@@ -71,6 +78,7 @@ export async function generateVrmGif(params: {
   speechRenderMode: SpeechRenderMode;
   speechStyleId: SpeechStylePresetId;
   motionId: MotionPresetId;
+  mixamoFbx?: ArrayBuffer | null;
   strength: MotionStrength;
   speed: MotionSpeed;
   background: BackgroundMode;
@@ -86,6 +94,7 @@ export async function generateVrmGif(params: {
     speechRenderMode,
     speechStyleId,
     motionId,
+    mixamoFbx = null,
     strength,
     speed,
     background,
@@ -101,12 +110,20 @@ export async function generateVrmGif(params: {
 
   let vrm: Awaited<ReturnType<typeof loadVrmFromMeebitsId>> | null = null;
   let rig: ReturnType<typeof createVrmMotionRig> | null = null;
+  let mixamoSource: MixamoMotionSource | null = null;
   const scene = new Scene();
 
   try {
     vrm = await loadVrmFromMeebitsId({ id: meebitId });
     rig = createVrmMotionRig(vrm);
     scene.add(vrm.scene);
+
+    if (motionId === "mixamo") {
+      if (!mixamoFbx) {
+        throw new Error("Mixamo motion requires an uploaded FBX file.");
+      }
+      mixamoSource = await createMixamoMotionSource(mixamoFbx);
+    }
 
     // プレビューと合わせて“明るめ”のライトにする（顔が潰れない）
     scene.add(new AmbientLight(0xffffff, 1.35));
@@ -141,7 +158,18 @@ export async function generateVrmGif(params: {
       const t = i * dt;
 
       resetVrmMotionRig(rig);
-      applyMotion({ vrm, rig, t, presetId: motionId, strength, speed });
+      if (motionId === "mixamo" && mixamoSource) {
+        applyMixamoBasePose(rig);
+        applyMixamoMotionToRig({
+          source: mixamoSource,
+          rig,
+          t,
+          strength,
+          speed,
+        });
+      } else {
+        applyMotion({ vrm, rig, t, presetId: motionId, strength, speed });
+      }
       try {
         vrm.update(dt);
       } catch {
@@ -205,6 +233,11 @@ export async function generateVrmGif(params: {
       renderer.resetState();
     } catch {
       // ignore
+    }
+
+    if (mixamoSource) {
+      disposeMixamoMotionSource(mixamoSource);
+      mixamoSource = null;
     }
 
     if (vrm) {

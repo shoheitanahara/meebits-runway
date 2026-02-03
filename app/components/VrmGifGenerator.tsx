@@ -64,6 +64,9 @@ export function VrmGifGenerator() {
   const [strength, setStrength] = useState<MotionStrength>(1.0);
   const [speed, setSpeed] = useState<MotionSpeed>(1.0);
 
+  const [mixamoFbx, setMixamoFbx] = useState<ArrayBuffer | null>(null);
+  const [mixamoFileName, setMixamoFileName] = useState<string | null>(null);
+
   const [background, setBackground] = useState<BackgroundMode>("white");
   const [cameraMode, setCameraMode] = useState<CameraMode>("front");
   const [framing, setFraming] = useState<CameraFraming>("fullBody");
@@ -86,6 +89,11 @@ export function VrmGifGenerator() {
       setIsGenerating(true);
       setProgress(0);
 
+      if (motionId === "mixamo" && !mixamoFbx) {
+        setErrorMessage("Mixamoモーションを使うには FBX ファイルをアップロードしてください。");
+        return;
+      }
+
       if (gifUrl) {
         URL.revokeObjectURL(gifUrl);
         setGifUrl(null);
@@ -98,6 +106,7 @@ export function VrmGifGenerator() {
         speechRenderMode,
         speechStyleId,
         motionId,
+        mixamoFbx,
         strength,
         speed,
         background,
@@ -140,6 +149,7 @@ export function VrmGifGenerator() {
               <Viewer
                 meebitId={meebitId}
                 motionId={motionId}
+                mixamoFbx={mixamoFbx}
                 strength={strength}
                 speed={speed}
                 background={background}
@@ -318,6 +328,84 @@ export function VrmGifGenerator() {
                     </option>
                   ))}
                 </select>
+
+                {motionId === "mixamo" && (
+                  <div className="mt-2 flex flex-col gap-2">
+                    <div className="rounded-xl border border-black/10 bg-white/70 p-3 text-sm text-zinc-700 dark:border-white/10 dark:bg-zinc-950/40 dark:text-zinc-300">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-medium">Mixamo</span>
+                        <a
+                          href="https://www.mixamo.com/"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-3 py-1 text-xs font-semibold text-zinc-950 transition-colors hover:bg-zinc-50 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-50 dark:hover:bg-zinc-900"
+                        >
+                          Open Mixamo
+                        </a>
+                      </div>
+                      <div className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">
+                        Download your animation from Mixamo with these settings:
+                        <ul className="mt-2 list-disc pl-5">
+                          <li>
+                            <span className="font-mono">Format</span>: FBX Binary (.fbx)
+                          </li>
+                          <li>
+                            <span className="font-mono">Skin</span>: Without Skin
+                          </li>
+                          <li>
+                            <span className="font-mono">Frames per Second</span>: 24
+                          </li>
+                          <li>
+                            <span className="font-mono">Keyframe Reduction</span>: none
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                    <label className="flex flex-col gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      Mixamo FBX (Any animation)
+                      <input
+                        type="file"
+                        accept=".fbx"
+                        disabled={isGenerating}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] ?? null;
+                          if (!file) {
+                            setMixamoFbx(null);
+                            setMixamoFileName(null);
+                            return;
+                          }
+                          setMixamoFileName(file.name);
+                          void file.arrayBuffer().then(
+                            (buf) => setMixamoFbx(buf),
+                            () => {
+                              setMixamoFbx(null);
+                              setMixamoFileName(null);
+                              setErrorMessage("FBXファイルの読み込みに失敗しました。別のファイルを試してください。");
+                            },
+                          );
+                        }}
+                        className="block w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm text-zinc-950 file:mr-3 file:rounded-full file:border-0 file:bg-zinc-950 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-zinc-800 disabled:opacity-60 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-50 dark:file:bg-zinc-50 dark:file:text-zinc-950 dark:hover:file:bg-zinc-200"
+                      />
+                      <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                        {mixamoFileName ? `Selected: ${mixamoFileName}` : "未選択"}
+                      </span>
+                    </label>
+
+                    {(mixamoFbx || mixamoFileName) && (
+                      <button
+                        type="button"
+                        disabled={isGenerating}
+                        onClick={() => {
+                          setMixamoFbx(null);
+                          setMixamoFileName(null);
+                        }}
+                        className="inline-flex h-10 items-center justify-center rounded-full border border-black/10 bg-white px-4 text-sm font-semibold text-zinc-950 transition-colors hover:bg-zinc-50 disabled:opacity-60 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-50 dark:hover:bg-zinc-900"
+                      >
+                        Clear Mixamo FBX
+                      </button>
+                    )}
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-2">
                   <label className="flex flex-col gap-1 text-sm text-zinc-700 dark:text-zinc-300">
