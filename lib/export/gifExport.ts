@@ -22,7 +22,7 @@ import {
   createMixamoMotionSource,
   disposeMixamoMotionSource,
   type MixamoMotionSource,
-} from "@/lib/motion/mixamo";
+} from "../motion/mixamo";
 import { drawSpeech } from "@/lib/text/drawSpeech";
 import { GIFEncoder, applyPalette, quantize } from "gifenc";
 import {
@@ -125,16 +125,16 @@ export async function generateVrmGif(params: {
       mixamoSource = await createMixamoMotionSource(mixamoFbx);
     }
 
-    // プレビューと合わせて“明るめ”のライトにする（顔が潰れない）
-    scene.add(new AmbientLight(0xffffff, 1.35));
-    const key = new DirectionalLight(0xffffff, 2.2);
-    key.position.set(0, 1.2, 2.2);
+    // プレビューと合わせたライト設定（顔が潰れない＆ピカピカしにくいバランス）
+    scene.add(new AmbientLight(0xffffff, 0.9));
+    const key = new DirectionalLight(0xffffff, 12.2);
+    key.position.set(0, 4.8, 1.2);
     scene.add(key);
-    const fill = new DirectionalLight(0xffffff, 1.0);
-    fill.position.set(-2.2, 1.4, 1.0);
+    const fill = new DirectionalLight(0xffffff, 0.7);
+    fill.position.set(-8.8, 5.6, 4.0);
     scene.add(fill);
-    const rim = new DirectionalLight(0xffffff, 0.7);
-    rim.position.set(2.2, 0.8, -1.8);
+    const rim = new DirectionalLight(0xffffff, 0.5);
+    rim.position.set(8.8, 3.2, -7.2);
     scene.add(rim);
 
     const camera = new PerspectiveCamera(30, 1, 0.1, 100);
