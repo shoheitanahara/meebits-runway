@@ -252,14 +252,24 @@ export function VrmGifGenerator() {
                   ))}
                 </div>
 
-                <input
-                  type="text"
-                  value={speechText}
-                  onChange={(e) => setSpeechText(normalizeSpeech(e.target.value))}
-                  maxLength={24}
-                  disabled={isGenerating}
-                  className="h-10 rounded-lg border border-black/10 bg-white px-3 text-zinc-950 outline-none focus:border-zinc-400 disabled:opacity-60 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-50"
-                />
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={speechText}
+                    onChange={(e) => setSpeechText(normalizeSpeech(e.target.value))}
+                    maxLength={24}
+                    disabled={isGenerating}
+                    className="h-10 w-full rounded-lg border border-black/10 bg-white px-3 text-zinc-950 outline-none focus:border-zinc-400 disabled:opacity-60 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-50"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setSpeechText("")}
+                    disabled={isGenerating || speechText.trim().length === 0}
+                    className="inline-flex h-10 shrink-0 items-center justify-center rounded-full border border-black/10 bg-white px-4 text-sm font-semibold text-zinc-950 transition-colors hover:bg-zinc-50 disabled:opacity-60 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-50 dark:hover:bg-zinc-900"
+                  >
+                    Clear
+                  </button>
+                </div>
 
                 <div className="grid grid-cols-2 gap-2">
                   <label className="flex flex-col gap-1 text-sm text-zinc-700 dark:text-zinc-300">
