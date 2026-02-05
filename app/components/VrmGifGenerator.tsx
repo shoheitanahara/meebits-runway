@@ -23,7 +23,11 @@ const Viewer = dynamic(() => import("./Viewer").then((m) => m.Viewer), {
   ssr: false,
 });
 
-const DEFAULT_MEEBIT_ID = 4274;
+// NOTE:
+// Client Component でも初回HTMLはサーバで生成されるため、乱数を初期値に使うと hydration mismatch の原因になる。
+// そのため「サーバでは固定値 → クライアント初回マウント後にランダムで差し替え」で実質デフォルトをランダム化する。
+const DEFAULT_MEEBIT_CANDIDATES = [4274, 11143] as const;
+const DEFAULT_MEEBIT_ID = DEFAULT_MEEBIT_CANDIDATES[0];
 const MIN_MEEBIT_ID = 1;
 const MAX_MEEBIT_ID = 20000;
 
@@ -51,6 +55,15 @@ export function VrmGifGenerator() {
     () => clampMeebitId(Number(meebitIdInput)),
     [meebitIdInput],
   );
+
+  useEffect(() => {
+    // 初回マウント時のみ、候補からランダムでデフォルトを選ぶ（SSRとの不一致回避のため）
+    const picked =
+      DEFAULT_MEEBIT_CANDIDATES[
+        Math.floor(Math.random() * DEFAULT_MEEBIT_CANDIDATES.length)
+      ] ?? DEFAULT_MEEBIT_ID;
+    setMeebitIdInput(`${picked}`);
+  }, []);
 
   const [speechText, setSpeechText] = useState("Hello");
   const [speechPosition, setSpeechPosition] =
