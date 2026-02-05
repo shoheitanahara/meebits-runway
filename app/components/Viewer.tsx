@@ -295,7 +295,7 @@ export function Viewer(props: ViewerProps) {
         {/* 顔が暗くならないよう、アンビエント＋正面キー＋フィルの3点で照らす。
             NOTE: 近すぎ/強すぎるとハイライトが強くなり「ピカピカ」するので、少し遠く・少し弱めに。 */}
         <ambientLight intensity={0.9} />
-        <directionalLight position={[0, 4.8, 1.2]} intensity={12.2} />
+        <directionalLight position={[0, 2.8, 4.2]} intensity={5.2} />
         <directionalLight position={[-8.8, 5.6, 4.0]} intensity={1.0} />
         <directionalLight position={[8.8, 3.2, -7.2]} intensity={0.7} />
         {vrm && (
