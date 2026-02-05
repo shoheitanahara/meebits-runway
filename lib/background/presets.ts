@@ -11,6 +11,9 @@ export type BackgroundPreset = Readonly<{
  * Keep saturation moderate to avoid overpowering pixel-art shading.
  */
 export const BACKGROUND_PRESETS = [
+  // Default (recommended)
+  { id: "paperBeige", label: "Paper Beige", hex: "#f1eadf" },
+
   { id: "white", label: "White", hex: "#ffffff" },
   { id: "dark", label: "Dark", hex: "#0a0a0a" },
 
@@ -38,7 +41,6 @@ export const BACKGROUND_PRESETS = [
 
   // Warm neutrals
   { id: "warmSand", label: "Warm Sand", hex: "#d6c6a8" },
-  { id: "paperBeige", label: "Paper Beige", hex: "#f1eadf" },
   { id: "clay", label: "Clay", hex: "#b08a77" },
   { id: "terracottaDust", label: "Terracotta Dust", hex: "#8f5f4d" },
 

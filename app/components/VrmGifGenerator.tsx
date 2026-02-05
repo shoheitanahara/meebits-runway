@@ -80,7 +80,7 @@ export function VrmGifGenerator() {
   const [mixamoFbx, setMixamoFbx] = useState<ArrayBuffer | null>(null);
   const [mixamoFileName, setMixamoFileName] = useState<string | null>(null);
 
-  const [background, setBackground] = useState<BackgroundMode>("white");
+  const [background, setBackground] = useState<BackgroundMode>("paperBeige");
   const [cameraMode, setCameraMode] = useState<CameraMode>("front");
   const [framing, setFraming] = useState<CameraFraming>("fullBody");
   const [pan, setPan] = useState<CameraPan>("center");
