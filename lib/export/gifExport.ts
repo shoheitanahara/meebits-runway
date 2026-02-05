@@ -128,7 +128,7 @@ export async function generateVrmGif(params: {
     // プレビューと合わせたライト設定（顔が潰れない＆ピカピカしにくいバランス）
     scene.add(new AmbientLight(0xffffff, 0.9));
     const key = new DirectionalLight(0xffffff, 5.2);
-    key.position.set(0, 2.8, 4.2);
+    key.position.set(1.8, 3.8, 4.2);
     scene.add(key);
     const fill = new DirectionalLight(0xffffff, 0.7);
     fill.position.set(-8.8, 5.6, 4.0);
