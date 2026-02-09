@@ -41,6 +41,13 @@ type BoneState = Readonly<{
 
 export type VrmMotionRig = Readonly<{
   bones: Partial<Record<BoneName, BoneState>>;
+  /**
+   * 各ボーンの「初期姿勢（baseQuaternion適用時）」におけるワールド回転。
+   *
+   * Mixamoなど外部スケルトンからのリターゲット時に、
+   * “ワールド空間の差分回転”を正しくローカルへ戻すために使う。
+   */
+  restWorld: Partial<Record<BoneName, Quaternion>>;
   root: Readonly<{
     node: Object3D;
     baseQuaternion: Quaternion;
@@ -81,6 +88,7 @@ function getBoneNode(vrm: VRM, name: BoneName): Object3D | null {
 
 export function createVrmMotionRig(vrm: VRM): VrmMotionRig {
   const bones: Partial<Record<BoneName, BoneState>> = {};
+  const restWorld: Partial<Record<BoneName, Quaternion>> = {};
 
   const boneNames: readonly BoneName[] = [
     BONE.hips,
@@ -114,11 +122,21 @@ export function createVrmMotionRig(vrm: VRM): VrmMotionRig {
       node,
       baseQuaternion: node.quaternion.clone(),
     };
+
+    // normalized bone node は vrm.scene 配下とは限らないため、
+    // ノード起点で親方向を更新してから world quaternion を取る。
+    try {
+      node.updateWorldMatrix(true, false);
+      restWorld[name] = node.getWorldQuaternion(new Quaternion());
+    } catch {
+      // ignore
+    }
   }
 
   // ルートは vrm.scene を対象にする（存在は必ずある）
   return {
     bones,
+    restWorld,
     root: {
       node: vrm.scene,
       baseQuaternion: vrm.scene.quaternion.clone(),

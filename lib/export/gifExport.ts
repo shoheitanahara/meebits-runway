@@ -18,7 +18,6 @@ import {
 } from "@/lib/motion/applyMotion";
 import {
   applyMixamoMotionToRig,
-  applyMixamoBasePose,
   createMixamoMotionSource,
   disposeMixamoMotionSource,
   type MixamoMotionSource,
@@ -159,7 +158,6 @@ export async function generateVrmGif(params: {
 
       resetVrmMotionRig(rig);
       if (motionId === "mixamo" && mixamoSource) {
-        applyMixamoBasePose(rig);
         applyMixamoMotionToRig({
           source: mixamoSource,
           rig,
