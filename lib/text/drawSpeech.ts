@@ -322,17 +322,30 @@ export function drawSpeech(params: {
   // 入力制限（要件：最大24文字、改行なし）
   const singleLine = trimmed.replaceAll(/\s+/gu, " ").slice(0, 24);
 
-  // アニメ：0.0〜0.2秒でフェードイン＋微拡大
-  const inT = clamp(t / 0.2, 0, 1);
-  const inOpacity = inT;
-  const scale = lerp(0.95, 1.0, inT);
+  // 2回点滅アニメーション
+  // 1回目: 0.0〜1.3秒、2回目: 1.5〜2.8秒
+  const fadeInDur = 0.15;
+  const fadeOutDur = 0.2;
 
-  // 任意：2.6〜3.0秒でフェードアウト
-  const outT = clamp((t - 2.6) / 0.4, 0, 1);
-  const outOpacity = 1 - outT;
+  const b1Start = 0.0;
+  const b1End = 1.3;
+  const b2Start = 1.5;
+  const b2End = 2.8;
 
-  const opacity = clamp(inOpacity * outOpacity, 0, 1);
+  const b1In = clamp((t - b1Start) / fadeInDur, 0, 1);
+  const b1Out = 1 - clamp((t - (b1End - fadeOutDur)) / fadeOutDur, 0, 1);
+  const blink1 = t >= b1Start && t <= b1End ? b1In * b1Out : 0;
+
+  const b2In = clamp((t - b2Start) / fadeInDur, 0, 1);
+  const b2Out = 1 - clamp((t - (b2End - fadeOutDur)) / fadeOutDur, 0, 1);
+  const blink2 = t >= b2Start && t <= b2End ? b2In * b2Out : 0;
+
+  const opacity = clamp(Math.max(blink1, blink2), 0, 1);
   if (opacity <= 0.001) return;
+
+  // 微拡大アニメ：各点滅のフェードインに合わせる
+  const activeBlinkIn = t < b2Start ? b1In : b2In;
+  const scale = lerp(0.95, 1.0, clamp(activeBlinkIn, 0, 1));
 
   const margin = Math.round(Math.min(width, height) * 0.06);
   const anchor = getAnchor({ width, height, position, margin });
