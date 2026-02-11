@@ -65,24 +65,25 @@ function computePixelTextLayout(params: {
   pixelScale: number;
 }): PixelTextLayout {
   const { text, maxWidth, pixelScale } = params;
-  const minSrcFont = 8;
-  // ピクセル感を強める：低解像度に描いて拡大
-  let srcFontPx = 12;
+  // 常に最大解像度（12px）で描画し、スケールで調整する。
+  // これにより文字数に関係なくソース解像度を一定に保てる。
+  // 旧実装では srcFontPx を 12→8 に下げていたが、
+  // ソースピクセル数が減り解像度低下の原因になっていた。
+  const srcFontPx = 8;
 
-  while (srcFontPx >= minSrcFont) {
-    const dstWidth = measurePixelTextWidth(text, srcFontPx) * pixelScale;
-    if (dstWidth <= maxWidth) break;
-    srcFontPx -= 1;
-  }
-
-  const srcWidth = Math.max(1, Math.ceil(measurePixelTextWidth(text, srcFontPx)) + 8);
+  const measuredWidth = measurePixelTextWidth(text, srcFontPx);
+  const srcWidth = Math.max(1, Math.ceil(measuredWidth) + 8);
   const srcHeight = Math.max(1, Math.ceil(srcFontPx * 1.4));
+
+  // テキストが maxWidth に収まるようにスケールを動的調整
+  const effectiveScale = Math.max(1, Math.min(pixelScale, maxWidth / srcWidth));
+
   return {
     srcFontPx,
     srcWidth,
     srcHeight,
-    dstWidth: srcWidth * pixelScale,
-    dstHeight: srcHeight * pixelScale,
+    dstWidth: Math.round(srcWidth * effectiveScale),
+    dstHeight: Math.round(srcHeight * effectiveScale),
   };
 }
 
