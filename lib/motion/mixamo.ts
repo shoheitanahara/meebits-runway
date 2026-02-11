@@ -79,17 +79,17 @@ export function applyMixamoBasePose(rig: VrmMotionRig): void {
 function getBoneGain(name: BoneName): number {
   switch (name) {
     case BONE.hips:
-      return 0.35;
-    case BONE.spine:
-      return 0.45;
-    case BONE.chest:
-      return 0.65;
-    case BONE.upperChest:
       return 0.70;
-    case BONE.neck:
-      return 0.75;
-    case BONE.head:
+    case BONE.spine:
       return 0.80;
+    case BONE.chest:
+      return 0.85;
+    case BONE.upperChest:
+      return 0.90;
+    case BONE.neck:
+      return 0.85;
+    case BONE.head:
+      return 0.90;
     case BONE.leftShoulder:
     case BONE.rightShoulder:
       return 1.0;
@@ -104,16 +104,16 @@ function getBoneGain(name: BoneName): number {
       return 1.0;
     case BONE.leftUpperLeg:
     case BONE.rightUpperLeg:
-      return 0.55;
+      return 0.75;
     case BONE.leftLowerLeg:
     case BONE.rightLowerLeg:
-      return 0.50;
+      return 0.70;
     case BONE.leftFoot:
     case BONE.rightFoot:
-      return 0.25;
+      return 0.45;
     case BONE.leftToes:
     case BONE.rightToes:
-      return 0.15;
+      return 0.30;
     default:
       return 1.0;
   }
@@ -122,17 +122,17 @@ function getBoneGain(name: BoneName): number {
 function getBoneMaxAngleRad(name: BoneName): number {
   switch (name) {
     case BONE.hips:
-      return 0.45;
+      return 0.90;
     case BONE.spine:
-      return 0.55;
+      return 1.00;
     case BONE.chest:
-      return 0.60;
+      return 1.00;
     case BONE.upperChest:
-      return 0.65;
+      return 1.00;
     case BONE.neck:
-      return 0.55;
+      return 0.90;
     case BONE.head:
-      return 0.65;
+      return 1.00;
     case BONE.leftShoulder:
     case BONE.rightShoulder:
     case BONE.leftUpperArm:
@@ -144,16 +144,16 @@ function getBoneMaxAngleRad(name: BoneName): number {
       return Math.PI;
     case BONE.leftUpperLeg:
     case BONE.rightUpperLeg:
-      return 0.75;
+      return 1.00;
     case BONE.leftLowerLeg:
     case BONE.rightLowerLeg:
-      return 0.60;
+      return 1.00;
     case BONE.leftFoot:
     case BONE.rightFoot:
-      return 0.35;
+      return 0.60;
     case BONE.leftToes:
     case BONE.rightToes:
-      return 0.20;
+      return 0.40;
     default:
       return Math.PI;
   }
