@@ -141,9 +141,7 @@ export async function generateVrmGif(params: {
 
     renderer.setSize(OUTPUT_SIZE, OUTPUT_SIZE, false);
     const isTransparent = background === "transparent";
-    if (isTransparent) {
-      renderer.setClearColor(new Color(0x000000), 0);
-    } else {
+    if (!isTransparent) {
       renderer.setClearColor(new Color(getBackgroundHex(background)), 1);
     }
 
@@ -157,6 +155,10 @@ export async function generateVrmGif(params: {
     const delayMs = Math.round(1000 / FPS);
     const dt = DURATION_SEC / FRAME_COUNT;
     const style = getSpeechStylePreset(speechStyleId);
+
+    // 透過モードで使う黒/白背景（ループ外で一度だけ生成）
+    const BLACK_BG = new Color(0x000000);
+    const WHITE_BG = new Color(0xffffff);
 
     for (let i = 0; i < FRAME_COUNT; i += 1) {
       const t = i * dt;
@@ -179,59 +181,109 @@ export async function generateVrmGif(params: {
         // ignore
       }
 
-      renderer.render(scene, camera);
-
-      // 合成順：
-      // 1) VRMモデル（WebGL）
-      // 2) 吹き出し（前面）
-      outCtx.clearRect(0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
-      outCtx.drawImage(glCanvas, 0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
-      drawSpeech({
-        ctx: outCtx,
-        width: OUTPUT_SIZE,
-        height: OUTPUT_SIZE,
-        t,
-        text: speechText,
-        position: speechPosition,
-        renderMode: speechRenderMode,
-        textColor: style.textColor,
-        bubbleFrameColor: style.frameColor,
-        bubbleFillColor: style.fillColor,
-      });
-
-      const imageData = outCtx.getImageData(0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
-      // ImageData.data は Uint8ClampedArray なので、gifenc 用に Uint8Array として扱う
-      const rgba = new Uint8Array(
-        imageData.data.buffer,
-        imageData.data.byteOffset,
-        imageData.data.byteLength,
-      );
-
       if (isTransparent) {
-        // --- 背景透過モード ---
-        // 1) アルファ値が低いピクセルを記録し、量子化用にキーカラーへ統一する
+        // ===== 背景透過モード（デュアルレンダー方式）=====
+        // 同一フレームを黒背景と白背景で2回レンダリングし、
+        // 差分からピクセルごとの正確なアルファ値を算出する。
+        // クロマキーと違い、半透明素材や色の汚染が一切起きない。
+
+        // (1) 黒背景レンダリング
+        renderer.setClearColor(BLACK_BG, 1);
+        renderer.render(scene, camera);
+        outCtx.clearRect(0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
+        outCtx.drawImage(glCanvas, 0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
+        const blackData = outCtx.getImageData(0, 0, OUTPUT_SIZE, OUTPUT_SIZE).data;
+
+        // (2) 白背景レンダリング（ポーズは同一）
+        renderer.setClearColor(WHITE_BG, 1);
+        renderer.render(scene, camera);
+        outCtx.clearRect(0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
+        outCtx.drawImage(glCanvas, 0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
+        const whiteData = outCtx.getImageData(0, 0, OUTPUT_SIZE, OUTPUT_SIZE).data;
+
+        // (3) ピクセルごとにアルファと元色を復元する
+        //   黒背景: Cb = C * A          (A=0 なら 0)
+        //   白背景: Cw = C * A + 255*(1-A) (A=0 なら 255)
+        //   よって: Cw - Cb = 255*(1-A)  →  A = 1 - (Cw-Cb)/255
         const pixelCount = OUTPUT_SIZE * OUTPUT_SIZE;
-        const ALPHA_THRESHOLD = 128;
+        // 背景は alpha≈0、モデルの半透明部品（瞳など）は alpha≈25-80。
+        // しきい値を低くして半透明素材を不透明として残す。
+        const ALPHA_THRESHOLD = 20;
+        const cleanedData = new ImageData(OUTPUT_SIZE, OUTPUT_SIZE);
+        const out = cleanedData.data;
         const transparentMask = new Uint8Array(pixelCount);
+
         for (let p = 0; p < pixelCount; p++) {
           const off = p * 4;
-          if (rgba[off + 3] < ALPHA_THRESHOLD) {
+          // 各チャネルの差分から最も保守的な alpha を算出
+          const dr = Math.max(0, whiteData[off] - blackData[off]);
+          const dg = Math.max(0, whiteData[off + 1] - blackData[off + 1]);
+          const db = Math.max(0, whiteData[off + 2] - blackData[off + 2]);
+          const alpha = 255 - Math.max(dr, dg, db);
+
+          if (alpha < ALPHA_THRESHOLD) {
+            // 背景（透過）
             transparentMask[p] = 1;
-            // 量子化でキーカラーが1色にまとまるよう統一する
-            rgba[off] = 0;
-            rgba[off + 1] = 0;
-            rgba[off + 2] = 0;
-            rgba[off + 3] = 255;
+            out[off] = 0;
+            out[off + 1] = 0;
+            out[off + 2] = 0;
+            out[off + 3] = 0;
+          } else {
+            // 不透明ピクセル：元色を復元 (C = Cb / A)
+            const a = alpha / 255;
+            out[off] = Math.min(255, Math.round(blackData[off] / a));
+            out[off + 1] = Math.min(255, Math.round(blackData[off + 1] / a));
+            out[off + 2] = Math.min(255, Math.round(blackData[off + 2] / a));
+            out[off + 3] = 255;
           }
         }
 
-        // 2) 255色に量子化し、残り1スロットを透過用に確保する
-        const palette = quantize(rgba, 255);
-        palette.push([0, 0, 0]); // 透過プレースホルダ
-        const transparentIdx = palette.length - 1;
+        // (4) 復元済みの画像をキャンバスに戻し、吹き出しを合成
+        outCtx.putImageData(cleanedData, 0, 0);
+        drawSpeech({
+          ctx: outCtx,
+          width: OUTPUT_SIZE,
+          height: OUTPUT_SIZE,
+          t,
+          text: speechText,
+          position: speechPosition,
+          renderMode: speechRenderMode,
+          textColor: style.textColor,
+          bubbleFrameColor: style.frameColor,
+          bubbleFillColor: style.fillColor,
+        });
 
-        // 3) パレットインデックスを適用し、透過ピクセルを上書き
+        // (5) 最終ピクセルを取得し、GIF 用にエンコード
+        const finalData = outCtx.getImageData(0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
+        const rgba = new Uint8Array(
+          finalData.data.buffer,
+          finalData.data.byteOffset,
+          finalData.data.byteLength,
+        );
+
+        // 吹き出しが描画されたピクセルは不透明に更新
+        for (let p = 0; p < pixelCount; p++) {
+          const off = p * 4;
+          if (rgba[off + 3] >= ALPHA_THRESHOLD) {
+            transparentMask[p] = 0;
+          }
+          // GIF 量子化用にすべてアルファ 255 にする
+          if (transparentMask[p]) {
+            rgba[off] = 0;
+            rgba[off + 1] = 0;
+            rgba[off + 2] = 0;
+          }
+          rgba[off + 3] = 255;
+        }
+
+        // NOTE:
+        // 透過用カラーを先に palette に入れると、applyPalette() が「本物の黒」などを
+        // 透過インデックスへ割り当ててしまうことがある（黒目や吹き出しの縁が抜ける原因）。
+        // そのため「量子化→インデックス化→最後に透過色を追加→maskで上書き」の順にする。
+        const palette = quantize(rgba, 255);
         const index = applyPalette(rgba, palette);
+        palette.push([0, 0, 0]); // 透過プレースホルダ（インデックスは mask 経由でのみ使用）
+        const transparentIdx = palette.length - 1;
         for (let p = 0; p < pixelCount; p++) {
           if (transparentMask[p]) {
             index[p] = transparentIdx;
@@ -244,10 +296,33 @@ export async function generateVrmGif(params: {
           repeat: i === 0 ? 0 : undefined,
           transparent: true,
           transparentIndex: transparentIdx,
-          dispose: 2, // フレーム間で前の描画を消去（透過の残像防止）
+          dispose: 2,
         });
       } else {
-        // --- 通常モード（不透明背景）---
+        // ===== 通常モード（不透明背景）=====
+        renderer.render(scene, camera);
+
+        outCtx.clearRect(0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
+        outCtx.drawImage(glCanvas, 0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
+        drawSpeech({
+          ctx: outCtx,
+          width: OUTPUT_SIZE,
+          height: OUTPUT_SIZE,
+          t,
+          text: speechText,
+          position: speechPosition,
+          renderMode: speechRenderMode,
+          textColor: style.textColor,
+          bubbleFrameColor: style.frameColor,
+          bubbleFillColor: style.fillColor,
+        });
+
+        const imageData = outCtx.getImageData(0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
+        const rgba = new Uint8Array(
+          imageData.data.buffer,
+          imageData.data.byteOffset,
+          imageData.data.byteLength,
+        );
         const palette = quantize(rgba, 256);
         const index = applyPalette(rgba, palette);
 
