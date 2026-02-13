@@ -181,7 +181,23 @@ export function VrmGifGenerator() {
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-sm font-medium">Result</span>
                 </div>
-                <div className="mt-3 overflow-hidden rounded-xl border border-black/10 dark:border-white/10">
+                <div
+                  className="mt-3 overflow-hidden rounded-xl border border-black/10 dark:border-white/10"
+                  style={
+                    background === "transparent"
+                      ? {
+                          backgroundImage: [
+                            "linear-gradient(45deg, #d0d0d0 25%, transparent 25%)",
+                            "linear-gradient(-45deg, #d0d0d0 25%, transparent 25%)",
+                            "linear-gradient(45deg, transparent 75%, #d0d0d0 75%)",
+                            "linear-gradient(-45deg, transparent 75%, #d0d0d0 75%)",
+                          ].join(", "),
+                          backgroundSize: "20px 20px",
+                          backgroundPosition: "0 0, 0 10px, 10px -10px, -10px 0",
+                        }
+                      : undefined
+                  }
+                >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={gifUrl} alt="Generated GIF preview" className="h-full w-full" />
                 </div>

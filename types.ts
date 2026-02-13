@@ -23,6 +23,7 @@ export type MotionSpeed = 0.8 | 1.0 | 1.2;
 
 // Background color presets (IDs only). UI labels / hex codes live in `lib/background/presets.ts`.
 export const BACKGROUND_MODES = [
+  "transparent",
   "white",
   "dark",
   "newPunkBlue",

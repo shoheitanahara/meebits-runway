@@ -14,6 +14,9 @@ export const BACKGROUND_PRESETS = [
   // Default (recommended)
   { id: "paperBeige", label: "Paper Beige", hex: "#f1eadf" },
 
+  // Transparent (GIF alpha channel)
+  { id: "transparent", label: "Transparent", hex: "#000000" },
+
   { id: "white", label: "White", hex: "#ffffff" },
   { id: "dark", label: "Dark", hex: "#0a0a0a" },
 

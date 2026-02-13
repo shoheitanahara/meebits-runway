@@ -221,7 +221,7 @@ export async function createMixamoMotionSource(
   const root = loader.parse(fbxArrayBuffer, "");
   const clip = pickPrimaryClip(root);
   if (!clip || !Number.isFinite(clip.duration) || clip.duration <= 0) {
-    throw new Error("FBXに有効なアニメーションクリップが見つかりませんでした。");
+    throw new Error("No valid animation clips found in the FBX file.");
   }
 
   const boneIndex = buildBoneIndex(root);

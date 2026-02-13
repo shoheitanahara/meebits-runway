@@ -51,6 +51,20 @@ type ViewerProps = Readonly<{
   speechStyleId: SpeechStylePresetId;
 }>;
 
+/**
+ * 透過モード時に scene.background と clearColor をリセットする。
+ * R3F の `<color attach="background">` がアンマウントされても
+ * clearColor が残る場合があるため、明示的に制御する。
+ */
+function TransparentBackground() {
+  const { gl, scene } = useThree();
+  useEffect(() => {
+    scene.background = null;
+    gl.setClearColor(0x000000, 0);
+  }, [gl, scene]);
+  return null;
+}
+
 function SceneContent(props: {
   vrm: VRM;
   motionId: MotionPresetId;
@@ -281,17 +295,42 @@ export function Viewer(props: ViewerProps) {
     };
   }, [meebitId]);
 
-  const bg = useMemo(() => new Color(getBackgroundHex(background)), [background]);
+  const isTransparentBg = background === "transparent";
+  const bg = useMemo(
+    () => (isTransparentBg ? null : new Color(getBackgroundHex(background))),
+    [background, isTransparentBg],
+  );
   const speechCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
+  // チェッカーボード（透過プレビュー用）
+  const checkerStyle = useMemo(
+    () =>
+      isTransparentBg
+        ? ({
+            backgroundImage: [
+              "linear-gradient(45deg, #d0d0d0 25%, transparent 25%)",
+              "linear-gradient(-45deg, #d0d0d0 25%, transparent 25%)",
+              "linear-gradient(45deg, transparent 75%, #d0d0d0 75%)",
+              "linear-gradient(-45deg, transparent 75%, #d0d0d0 75%)",
+            ].join(", "),
+            backgroundSize: "20px 20px",
+            backgroundPosition: "0 0, 0 10px, 10px -10px, -10px 0",
+          } as React.CSSProperties)
+        : undefined,
+    [isTransparentBg],
+  );
+
   return (
-    <div className="relative h-full w-full overflow-hidden rounded-2xl border border-black/10 bg-white dark:border-white/10 dark:bg-zinc-950">
+    <div
+      className="relative h-full w-full overflow-hidden rounded-2xl border border-black/10 bg-white dark:border-white/10 dark:bg-zinc-950"
+      style={checkerStyle}
+    >
       <Canvas
         dpr={[1, 2]}
         camera={{ fov: 30, near: 0.1, far: 100 }}
-        gl={{ antialias: true, preserveDrawingBuffer: true }}
+        gl={{ antialias: true, preserveDrawingBuffer: true, alpha: true }}
       >
-        <color attach="background" args={[bg]} />
+        {bg ? <color attach="background" args={[bg]} /> : <TransparentBackground />}
         {/* 顔が暗くならないよう、アンビエント＋正面キー＋フィルの3点で照らす。
             NOTE: 近すぎ/強すぎるとハイライトが強くなり「ピカピカ」するので、少し遠く・少し弱めに。 */}
         <ambientLight intensity={0.9} />

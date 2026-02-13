@@ -140,7 +140,12 @@ export async function generateVrmGif(params: {
     applyVrmCameraPose({ vrm, camera, cameraMode, framing, pan });
 
     renderer.setSize(OUTPUT_SIZE, OUTPUT_SIZE, false);
-    renderer.setClearColor(new Color(getBackgroundHex(background)), 1);
+    const isTransparent = background === "transparent";
+    if (isTransparent) {
+      renderer.setClearColor(new Color(0x000000), 0);
+    } else {
+      renderer.setClearColor(new Color(getBackgroundHex(background)), 1);
+    }
 
     const outCanvas = document.createElement("canvas");
     outCanvas.width = OUTPUT_SIZE;
@@ -201,14 +206,57 @@ export async function generateVrmGif(params: {
         imageData.data.byteOffset,
         imageData.data.byteLength,
       );
-      const palette = quantize(rgba, 256);
-      const index = applyPalette(rgba, palette);
 
-      gif.writeFrame(index, OUTPUT_SIZE, OUTPUT_SIZE, {
-        palette,
-        delay: delayMs,
-        repeat: i === 0 ? 0 : undefined, // 0 = infinite loop
-      });
+      if (isTransparent) {
+        // --- 背景透過モード ---
+        // 1) アルファ値が低いピクセルを記録し、量子化用にキーカラーへ統一する
+        const pixelCount = OUTPUT_SIZE * OUTPUT_SIZE;
+        const ALPHA_THRESHOLD = 128;
+        const transparentMask = new Uint8Array(pixelCount);
+        for (let p = 0; p < pixelCount; p++) {
+          const off = p * 4;
+          if (rgba[off + 3] < ALPHA_THRESHOLD) {
+            transparentMask[p] = 1;
+            // 量子化でキーカラーが1色にまとまるよう統一する
+            rgba[off] = 0;
+            rgba[off + 1] = 0;
+            rgba[off + 2] = 0;
+            rgba[off + 3] = 255;
+          }
+        }
+
+        // 2) 255色に量子化し、残り1スロットを透過用に確保する
+        const palette = quantize(rgba, 255);
+        palette.push([0, 0, 0]); // 透過プレースホルダ
+        const transparentIdx = palette.length - 1;
+
+        // 3) パレットインデックスを適用し、透過ピクセルを上書き
+        const index = applyPalette(rgba, palette);
+        for (let p = 0; p < pixelCount; p++) {
+          if (transparentMask[p]) {
+            index[p] = transparentIdx;
+          }
+        }
+
+        gif.writeFrame(index, OUTPUT_SIZE, OUTPUT_SIZE, {
+          palette,
+          delay: delayMs,
+          repeat: i === 0 ? 0 : undefined,
+          transparent: true,
+          transparentIndex: transparentIdx,
+          dispose: 2, // フレーム間で前の描画を消去（透過の残像防止）
+        });
+      } else {
+        // --- 通常モード（不透明背景）---
+        const palette = quantize(rgba, 256);
+        const index = applyPalette(rgba, palette);
+
+        gif.writeFrame(index, OUTPUT_SIZE, OUTPUT_SIZE, {
+          palette,
+          delay: delayMs,
+          repeat: i === 0 ? 0 : undefined,
+        });
+      }
 
       onProgress?.(Math.round(((i + 1) / FRAME_COUNT) * 100));
 

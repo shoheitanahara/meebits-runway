@@ -1,5 +1,9 @@
 declare module "gifenc" {
-  export type GifPalette = Uint8Array | number[];
+  /** Each palette entry is an [R, G, B] tuple. */
+  export type GifPaletteEntry = [number, number, number];
+
+  /** Palette: array of [R,G,B] tuples returned by `quantize`. */
+  export type GifPalette = GifPaletteEntry[];
 
   export type GifWriteFrameOptions = Readonly<{
     palette: GifPalette;
@@ -7,6 +11,7 @@ declare module "gifenc" {
     repeat?: number;
     transparent?: boolean;
     transparentIndex?: number;
+    dispose?: number;
   }>;
 
   export type GifEncoder = Readonly<{
