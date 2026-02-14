@@ -59,6 +59,10 @@ type ViewerProps = Readonly<{
 function TransparentBackground() {
   const { gl, scene } = useThree();
   useEffect(() => {
+    // NOTE:
+    // three.js の `scene` はミュータブル（背景やライト等を直接書き換える設計）。
+    // R3F の state 由来でもここは意図的に変更する。
+    // eslint-disable-next-line react-hooks/immutability
     scene.background = null;
     gl.setClearColor(0x000000, 0);
   }, [gl, scene]);

@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   BackgroundMode,
   CameraFraming,
@@ -56,6 +56,8 @@ export function VrmGifGenerator() {
     [meebitIdInput],
   );
 
+  const viewerRootRef = useRef<HTMLDivElement | null>(null);
+
   useEffect(() => {
     // 初回マウント時のみ、候補からランダムでデフォルトを選ぶ（SSRとの不一致回避のため）
     const picked =
@@ -95,6 +97,88 @@ export function VrmGifGenerator() {
       if (gifUrl) URL.revokeObjectURL(gifUrl);
     };
   }, [gifUrl]);
+
+  const handleCaptureJpeg = async () => {
+    // NOTE:
+    // `Viewer` は WebGL の canvas と、吹き出し用の前面 canvas の2枚構成。
+    // Capture では両方を合成して 1枚の JPEG にする。
+    try {
+      setErrorMessage(null);
+
+      const root = viewerRootRef.current;
+      if (!root) {
+        setErrorMessage("Capture failed: preview is not ready yet.");
+        return;
+      }
+
+      const canvases = root.querySelectorAll("canvas");
+      const glCanvas = canvases.item(0) as HTMLCanvasElement | null;
+      const speechCanvas = canvases.item(1) as HTMLCanvasElement | null;
+      if (!glCanvas) {
+        setErrorMessage("Capture failed: canvas is not ready yet.");
+        return;
+      }
+
+      const width = glCanvas.width;
+      const height = glCanvas.height;
+      if (width <= 0 || height <= 0) {
+        setErrorMessage("Capture failed: canvas is not ready yet.");
+        return;
+      }
+
+      const outCanvas = document.createElement("canvas");
+      outCanvas.width = width;
+      outCanvas.height = height;
+      const ctx = outCanvas.getContext("2d");
+      if (!ctx) {
+        setErrorMessage("Capture failed: failed to initialize canvas.");
+        return;
+      }
+
+      // JPEG は透過を持てないため、白背景で合成する（透過背景モードでも黒くならない）
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(glCanvas, 0, 0, width, height);
+      if (speechCanvas) {
+        ctx.drawImage(speechCanvas, 0, 0, width, height);
+      }
+
+      const filename = `meebits-${meebitId}-${new Date().toISOString().replaceAll(":", "-")}.jpg`;
+
+      // toBlob が使える環境ではメモリ効率が良い
+      if (outCanvas.toBlob) {
+        const blob = await new Promise<Blob | null>((resolve) => {
+          outCanvas.toBlob((b) => resolve(b), "image/jpeg", 0.92);
+        });
+        if (!blob) {
+          setErrorMessage("Capture failed: failed to encode JPEG.");
+          return;
+        }
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        return;
+      }
+
+      // fallback（古いSafari等）
+      const dataUrl = outCanvas.toDataURL("image/jpeg", 0.92);
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch {
+      // 外部テクスチャ等が絡むと「tainted canvas」で失敗する可能性がある
+      setErrorMessage("Capture failed (tainted canvas). Please try again after the VRM fully loads.");
+    }
+  };
 
   const handleGenerate = async () => {
     try {
@@ -158,7 +242,7 @@ export function VrmGifGenerator() {
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           {/* Left: preview */}
           <div className="flex flex-col gap-3">
-            <div className="aspect-square w-full">
+            <div ref={viewerRootRef} className="relative aspect-square w-full">
               <Viewer
                 meebitId={meebitId}
                 motionId={motionId}
@@ -174,6 +258,15 @@ export function VrmGifGenerator() {
                 speechRenderMode={speechRenderMode}
                 speechStyleId={speechStyleId}
               />
+
+              <button
+                type="button"
+                onClick={() => void handleCaptureJpeg()}
+                disabled={isGenerating}
+                className="absolute right-3 top-3 z-40 inline-flex h-9 items-center justify-center rounded-full border border-black/10 bg-white/80 px-4 text-sm font-semibold text-zinc-950 backdrop-blur transition-colors hover:bg-white disabled:opacity-60 dark:border-white/10 dark:bg-zinc-950/70 dark:text-zinc-50 dark:hover:bg-zinc-900"
+              >
+                Capture JPG
+              </button>
             </div>
 
             {gifUrl && (
