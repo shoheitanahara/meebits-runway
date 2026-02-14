@@ -147,7 +147,7 @@ export function VrmGifGenerator() {
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="text-xl font-semibold tracking-tight">
-              Meebits GIF
+              Meebits GIF Generator
             </h2>
             <p className="text-sm text-zinc-600 dark:text-zinc-400">
               {GIF_EXPORT_SPEC.durationSec}s / {GIF_EXPORT_SPEC.fps}fps / {GIF_EXPORT_SPEC.size}px
